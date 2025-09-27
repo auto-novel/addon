@@ -1,0 +1,45 @@
+{
+    "$schema": "https://json.schemastore.org/chrome-manifest.json",
+    "manifest_version": 3,
+    "version": "0.0.1",
+    "name": "轻小说机翻站-用户侧爬虫",
+    "author": "kurikomoe",
+    "description": "轻小说机翻站用户侧爬虫插件，用于辅助采集轻小说网站内容。",
+    "icons": {
+        "48": "images/extension_48.png"
+    },
+    "action": {
+        "default_icon": {
+            "48": "images/extension_48.png"
+        },
+        "default_title": "轻小说机翻站-用户侧爬虫"
+    },
+    "background": {
+        "service_worker": "src/worker.ts"
+    },
+    "host_permissions": [
+        "*://*.syosetu.com/*",
+        "*://n.novelia.cc/*",
+        "*://*.fishhawk.top/*",
+        "*://example.com/*"
+    ],
+    "permissions": [
+        "debugger",
+        "scripting",
+        "tabs",
+        "cookies",
+        "storage"
+    ],
+    "content_scripts": [
+        {
+            "matches": [
+                "*://n.novelia.cc/*",
+                "*://example.com/*"
+            ],
+            "js": [
+                "src/content/auto-novel.ts"
+            ],
+            "run_at": "document_start"
+        }
+    ]
+}

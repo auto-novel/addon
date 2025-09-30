@@ -93,6 +93,16 @@ window.addEventListener("message", (event) => {
 
 
 
+## 开发说明
+
+```shell
+> pnpm install  # 安装依赖
+> pnpm prepare  # 设置 husky git hooks
+> pnpm dev      # 使用 extension.js 框架开发
+```
+
+
+
 
 
 

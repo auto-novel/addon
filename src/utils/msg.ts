@@ -20,6 +20,7 @@ export type Message = MSG_PING | MSG_CRAWLER;
 
 export type AutoNovelCrawlerCommand = {
   base_url: string;
+  continue?: boolean; // is this a single execution?
   cmd: keyof ClientMethods;
   data?: any;
 };

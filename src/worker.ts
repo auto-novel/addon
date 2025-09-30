@@ -12,6 +12,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   const msg = message as MSG_CRAWLER;
   const payload = msg.payload || {};
   if (!payload.base_url) payload.base_url = payload.data?.url;
+  payload.continue = payload.continue || false;
+
   const crawler = new WebCrawler(payload.base_url);
   crawler
     .applyCommand(payload.cmd, payload.data)
@@ -23,6 +25,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     })
     .catch((error) => sendResponse({ success: false, error: error.message }))
     .finally(async () => {
+      if (payload.continue) return;
       await crawler.quit();
     });
   return true;

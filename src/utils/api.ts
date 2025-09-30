@@ -88,6 +88,11 @@ export class Api {
     );
   }
 
+  public async tab_dom_querySelectorAll(selector: string): Promise<string[]> {
+    await this.requireInit();
+    return await this.debugger.dom_querySelectorAll(selector);
+  }
+
   /*
             在当前 tab 的身份下执行 http_get
             CORS: 遵循浏览器

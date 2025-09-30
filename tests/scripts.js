@@ -18,6 +18,19 @@ window.postMessage(
   "*"
 );
 
+// Pixiv R18 Test, Login Required
+window.postMessage(
+  {
+    type: "AUTO_NOVEL_CRAWLER_REQUEST",
+    payload: {
+      base_url: "",
+      cmd: "http.get",
+      data: { url: "https://www.pixiv.net/novel/show.php?id=20701122" }
+    }
+  },
+  "*"
+);
+
 window.postMessage(
   {
     type: "AUTO_NOVEL_CRAWLER_REQUEST",
@@ -41,4 +54,16 @@ window.addEventListener(
     console.log("received message:", event.data);
   },
   false
+);
+
+window.postMessage(
+  {
+    type: "AUTO_NOVEL_CRAWLER_REQUEST",
+    payload: {
+      base_url: "",
+      cmd: "http.get",
+      data: { url: "https://n.novelia.cc/" }
+    }
+  },
+  "*"
 );

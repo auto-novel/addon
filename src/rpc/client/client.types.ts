@@ -65,6 +65,7 @@ export type ClientMethods = {
   "tab.switchTo"(params: TabSwitchToParams): Promise<TabSwitchToResult>;
   "tab.http.get"(params: TabHttpGetParams): Promise<TabHttpGetResult>;
   "tab.http.postJson"(params: TabHttpPostJsonParams): Promise<TabHttpPostJsonResult>;
+  "tab.dom.querySelectorAll"(params: DomQuerySelectorAllParams): Promise<DomQuerySelectorAllResult>;
 
   "cookies.get"(params: CookiesGetParams): Promise<CookiesGetResult>;
 

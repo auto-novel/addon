@@ -4,13 +4,20 @@
     "version": "0.0.1",
     "name": "轻小说机翻站-用户侧爬虫",
     "author": "kurikomoe",
+    "homepage_url": "https://n.novelia.cc/",
     "description": "轻小说机翻站用户侧爬虫插件，用于辅助采集轻小说网站内容。",
     "icons": {
-        "48": "images/extension_48.png"
+      "16": "icons/16.png",
+      "32": "icons/32.png",
+      "48": "icons/48.png",
+      "64": "icons/64.png",
+      "128": "icons/128.png",
+      "256": "icons/256.png",
+      "512": "icons/512.png"
     },
     "action": {
         "default_icon": {
-            "48": "images/extension_48.png"
+            "48": "icons/48.png"
         },
         "default_title": "轻小说机翻站-用户侧爬虫"
     },
@@ -18,10 +25,22 @@
         "service_worker": "src/worker.ts"
     },
     "host_permissions": [
-        "*://*.syosetu.com/*",
-        "*://n.novelia.cc/*",
+        "*://example.com/*",
+
+        "*://*.novelia.cc/*",
         "*://*.fishhawk.top/*",
-        "*://example.com/*"
+
+        "*://*.baidu.com/*",
+        "*://*.youdao.com/*",
+        "*://*.openai.com/*",
+        "*://*.amazon.co.jp/*",
+        "*://kakuyomu.jp/*",
+        "*://*.syosetu.com/*",
+        "*://novelup.plus/*",
+        "*://syosetu.org/*",
+        "*://*.pixiv.net/*",
+        "*://*.alphapolis.co.jp/*",
+        "*://novelism.jp/*"
     ],
     "permissions": [
         "debugger",

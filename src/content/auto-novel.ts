@@ -21,7 +21,7 @@ function process_crawler_request(payload: AutoNovelCrawlerCommand, event: Messag
 
   chrome.runtime.sendMessage(fwd_msg, (response) => {
     if (isDebug) {
-      console.debug("Crawler response:", response);
+      console.info("Crawler response:", response);
     }
     window.postMessage(
       {

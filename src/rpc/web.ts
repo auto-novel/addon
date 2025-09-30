@@ -1,5 +1,6 @@
 import { Api } from "@utils/api";
 import type { ClientMethods } from "./client/client.types";
+import { sleep } from "@utils/tools";
 
 export class WebCrawler {
   url: string;
@@ -24,6 +25,7 @@ export class WebCrawler {
     "tab.switchTo": async ({ url }) => await this.api.tab_swith_to(url),
     "tab.http.get": async ({ url, params }) => await this.api.tab_http_get(url, params),
     "tab.http.postJson": async ({ url, data }) => await this.api.tab_http_post_json(url, data),
+    "tab.dom.querySelectorAll": async ({ selector }) => await this.api.tab_dom_querySelectorAll(selector),
 
     "cookies.get": async ({ url }) => await this.api.cookies_get(url),
 

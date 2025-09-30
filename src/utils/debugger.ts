@@ -33,6 +33,13 @@ export class Debugger {
     return Promise.resolve(ret.result.value);
   }
 
+  public async dom_querySelectorAll(selector: string): Promise<string[]> {
+    const ret = (await this.danger_remote_execute<string[]>(`
+        Array.from(document.querySelectorAll("${selector}")).map(e => e.outerHTML)
+    `)) as string[];
+    return ret;
+  }
+
   public async http_get(url: string, params?: Record<string, string>): Promise<string> {
     let final_url = new URL(url).toString();
     if (params) {

@@ -1,5 +1,3 @@
-import type { WorkerId } from "@rpc/api";
-
 export type SerializableResponse = {
   body: string;
   status: number;
@@ -64,10 +62,10 @@ export type JobQuitParams = {
 };
 export type JobQuitResult = void;
 
-export type CtlQuitParams = {
-  worker_id: WorkerId;
-};
-export type CtrlQuitResult = void;
+// export type CtlQuitParams = {
+//   worker_id: WorkerId;
+// };
+// export type CtrlQuitResult = void;
 
 export type ClientMethods = {
   "base.ping"(): Promise<string>;

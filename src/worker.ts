@@ -53,6 +53,7 @@ const messageFn = (message: Message, sender: chrome.runtime.MessageSender, sendR
       const payload = msg.payload ?? {};
       if (!payload.base_url) payload.base_url = payload.data?.url;
       payload.single = payload.single ?? true;
+      msg.id = msg.id ?? "";
 
       const [senderId, crawler] = getOrCreateCrawler(sender, payload);
 

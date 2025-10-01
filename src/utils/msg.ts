@@ -7,7 +7,7 @@ export enum MSG_TYPE {
 }
 
 interface BaseMessage {
-  id: string;
+  id?: string;
   type: MSG_TYPE;
 }
 

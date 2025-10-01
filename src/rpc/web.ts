@@ -18,7 +18,7 @@ export class WebCrawler {
   };
 
   public methods: ClientMethods = {
-    "base.ping": async () => "pong",
+    "base.ping": async () => await "pong",
 
     "http.raw": async ({ url, requestInit }) => await this.api.http_raw_fetch(url, requestInit),
     "http.get": async ({ url, params }) => await this.api.http_get(url, params),
@@ -39,9 +39,5 @@ export class WebCrawler {
 
   public async quit() {
     await this.api.close();
-  }
-
-  public async ensureInit(url: string) {
-    this.api.initTab();
   }
 }

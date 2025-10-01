@@ -26,6 +26,8 @@
     },
     "host_permissions": [
         "*://example.com/*",
+        "*://echo.free.beeceptor.com/*",
+        "*://localhost/*",
 
         "*://*.novelia.cc/*",
         "*://*.fishhawk.top/*",
@@ -53,7 +55,8 @@
         {
             "matches": [
                 "*://n.novelia.cc/*",
-                "*://example.com/*"
+                "*://example.com/*",
+                "*://localhost/*"
             ],
             "js": [
                 "src/content/auto-novel.ts"

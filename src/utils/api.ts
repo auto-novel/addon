@@ -1,6 +1,8 @@
 import { Debugger } from "@utils/debugger";
 import { WaitOrTimeout } from "@utils/tools";
-import { MAX_PAGE_LOAD_WAIT_TIME } from "@utils/consts";
+import { isDebug, MAX_PAGE_LOAD_WAIT_TIME } from "@utils/consts";
+import type { SerializableResponse } from "@rpc/client/client.types";
+import retry from "async-retry";
 
 type Tab = chrome.tabs.Tab;
 
@@ -52,25 +54,30 @@ export class Api {
     if (this.initialized === false) {
       return;
     }
-    console.info("crawler api closing");
+    if (isDebug) {
+      console.info("[AutoNovel] crawler api closing");
+    }
     await this.debugger.disconnect();
     await chrome.tabs.remove(this.tab.id!);
   }
 
   public async init() {
-    // console.error("Calling init");
     this.initialized = true;
-    this.tab = await chrome.tabs
-      .create({
-        url: this.url.toString(),
-        active: false
-      })
-      .then(async (tab) => {
-        return await WaitOrTimeout(this.tab_wait(tab), MAX_PAGE_LOAD_WAIT_TIME).catch(() => {
-          console.debug(`tab ${this.url} completing timeout, proceed anyway.`);
-          return tab;
+
+    const createTabFn = async () =>
+      chrome.tabs
+        .create({
+          url: this.url.toString(),
+          active: false
+        })
+        .then(async (tab) => {
+          return await WaitOrTimeout(this.tab_wait(tab), MAX_PAGE_LOAD_WAIT_TIME).catch(() => {
+            console.debug(`[AutoNovel] ${this.url} timeout, proceed anyway.`);
+            return tab;
+          });
         });
-      });
+
+    this.tab = await retry(createTabFn, { retries: 3, minTimeout: 1000 });
 
     this.debugger = new Debugger(this.tab);
     await this.debugger.connect();
@@ -88,6 +95,12 @@ export class Api {
     );
   }
 
+  public async tab_set_alway_focus() {
+    await this.requireInit();
+    await this.debugger.tab_set_alway_focus();
+    await this.tab_wait(this.tab);
+  }
+
   public async tab_dom_querySelectorAll(selector: string): Promise<string[]> {
     await this.requireInit();
     return await this.debugger.dom_querySelectorAll(selector);
@@ -99,9 +112,9 @@ export class Api {
             cookies: 浏览器自动附加
         */
   // @requireInit
-  public async tab_http_get(url: string, params?: Record<string, string>): Promise<string> {
+  public async tab_http_get(url: string, params = {}, headers = {}): Promise<SerializableResponse> {
     await this.requireInit();
-    return await this.debugger.http_get(url, params);
+    return await this.debugger.http_get(url, params, headers);
   }
 
   /*
@@ -110,9 +123,30 @@ export class Api {
             cookies: 浏览器自动附加
         */
   // @requireInit
-  public async tab_http_post_json(url: string, data?: Record<string, string>): Promise<string> {
+  public async tab_http_post_json(url: string, data = {}, headers = {}): Promise<SerializableResponse> {
     await this.requireInit();
-    return await this.debugger.http_post_json(url, data);
+    return await this.debugger.http_post_json(url, data, headers);
+  }
+
+  private async pack_response(response: Response): Promise<SerializableResponse> {
+    const headers: Record<string, string> = {};
+    for (const [key, value] of response.headers.entries()) {
+      headers[key] = value;
+    }
+
+    const bodyText = await response.text();
+
+    const serializableResponse = {
+      body: bodyText,
+      status: response.status,
+      statusText: response.statusText,
+      ok: response.ok,
+      headers: headers,
+      redirected: response.redirected,
+      url: response.url,
+      type: response.type
+    };
+    return serializableResponse;
   }
 
   /*
@@ -120,24 +154,22 @@ export class Api {
             CORS: 遵循 host_permissions 设定
             cookies: 手动获取并添加
         */
-  public async http_raw_fetch(url: string, requestInit?: RequestInit): Promise<string> {
+  public async http_raw_fetch(url: string, requestInit?: RequestInit): Promise<SerializableResponse> {
     const final_url = new URL(url).toString();
-    const response = await fetch(final_url, requestInit);
-    return response.text();
+    const resp = await fetch(final_url, requestInit);
+    return this.pack_response(resp);
   }
-  public async http_get(url: string, params?: Record<string, string>): Promise<string> {
+
+  public async http_get(url: string, params = {}, headers = {}): Promise<SerializableResponse> {
     let final_url = new URL(url).toString();
     if (params) {
       final_url += "?" + new URLSearchParams(params).toString();
     }
-    const resp = await fetch(final_url, { method: "GET", cache: "no-cache" });
-    return resp.text();
+    const resp = await fetch(final_url, { method: "GET", cache: "no-cache", ...headers });
+    return this.pack_response(resp);
   }
-  public async http_post_json(
-    url: string,
-    data?: Record<string, string>,
-    headers?: Record<string, string>
-  ): Promise<string> {
+
+  public async http_post_json(url: string, data = {}, headers = {}): Promise<SerializableResponse> {
     const final_url = new URL(url).toString();
     const jsonDataString = JSON.stringify(data || {});
     const resp = await fetch(final_url, {
@@ -150,7 +182,7 @@ export class Api {
       },
       body: JSON.stringify(jsonDataString)
     });
-    return resp.text();
+    return this.pack_response(resp);
   }
 
   public async cookies_get(url: string): Promise<chrome.cookies.Cookie[]> {

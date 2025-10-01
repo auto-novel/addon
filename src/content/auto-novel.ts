@@ -1,7 +1,7 @@
 import { isDebug } from "@utils/consts";
 import { MSG_TYPE, type AutoNovelCrawlerCommand, type MSG_CRAWLER } from "@utils/msg";
 
-console.log("Content script for auto-novel loaded.");
+console.log("[AutoNovel] Content script for auto-novel loaded.");
 
 function process_ping(event: MessageEvent) {
   window.postMessage(
@@ -21,7 +21,7 @@ function process_crawler_request(payload: AutoNovelCrawlerCommand, event: Messag
 
   chrome.runtime.sendMessage(fwd_msg, (response) => {
     if (isDebug) {
-      console.info("Crawler response:", response);
+      console.info("[AutoNovel] Crawler response:", response);
     }
     window.postMessage(
       {

@@ -1,61 +1,73 @@
 import type { WorkerId } from "@rpc/api";
 
-type HttpRawParams = {
+export type SerializableResponse = {
+  body: string;
+  status: number;
+  statusText: string;
+  ok: boolean;
+  headers: Record<string, string>;
+  redirected: boolean;
+  url: string;
+  type: ResponseType;
+};
+
+export type HttpRawParams = {
   url: string;
   requestInit?: RequestInit;
 };
-type HttpRawResult = string;
+export type HttpRawResult = SerializableResponse;
 
-type HttpGetParams = {
+export type HttpGetParams = {
   url: string;
   params?: Record<string, string>;
 };
-type HttpGetResult = string;
+export type HttpGetResult = SerializableResponse;
 
-type HttpPostJsonParams = {
+export type HttpPostJsonParams = {
   url: string;
   data?: Record<string, string>;
   headers?: Record<string, string>;
 };
-type HttpPostJsonResult = string;
+export type HttpPostJsonResult = SerializableResponse;
 
-type TabSwitchToParams = {
+export type TabSwitchToParams = {
   url: string;
 };
-type TabSwitchToResult = void;
+export type TabSwitchToResult = void;
 
-type TabHttpGetParams = {
+export type TabHttpGetParams = {
   url: string;
   params?: Record<string, string>;
 };
-type TabHttpGetResult = string;
+export type TabHttpGetResult = SerializableResponse;
 
-type TabHttpPostJsonParams = {
+export type TabHttpPostJsonParams = {
   url: string;
   data?: Record<string, string>;
+  headers?: Record<string, string>;
 };
-type TabHttpPostJsonResult = string;
+export type TabHttpPostJsonResult = SerializableResponse;
 
-type CookiesGetParams = {
+export type CookiesGetParams = {
   url: string;
 };
-type CookiesGetResult = chrome.cookies.Cookie[];
+export type CookiesGetResult = chrome.cookies.Cookie[];
 
-type DomQuerySelectorAllParams = {
+export type DomQuerySelectorAllParams = {
   selector: string;
 };
-type DomQuerySelectorAllResult = string[];
+export type DomQuerySelectorAllResult = string[];
 
-type JobQuitParams = {
+export type JobQuitParams = {
   status: "completed" | "failed" | "canceled" | "ignored";
   reason?: string;
 };
-type JobQuitResult = void;
+export type JobQuitResult = void;
 
-type CtlQuitParams = {
+export type CtlQuitParams = {
   worker_id: WorkerId;
 };
-type CtrlQuitResult = void;
+export type CtrlQuitResult = void;
 
 export type ClientMethods = {
   "http.raw"(params: HttpRawParams): Promise<HttpRawResult>;

@@ -41,6 +41,7 @@ export type ClientMethods = {
   "tab.switchTo"(params: TabSwitchToParams): Promise<TabSwitchToResult>;
   "tab.http.get"(params: TabHttpGetParams): Promise<TabHttpGetResult>;
   "tab.http.postJson"(params: TabHttpPostJsonParams): Promise<TabHttpPostJsonResult>;
+  "tab.dom.querySelectorAll"(params: DomQuerySelectorAllParams): Promise<DomQuerySelectorAllResult>;
 
   "cookies.get"(params: CookiesGetParams): Promise<CookiesGetResult>;
   // 在 base_url 页面执行 querySelectorAll，支持 SPA 页面。
@@ -58,19 +59,19 @@ export type ClientMethods = {
 // 命令：对 机翻站（SPA 站）进行 dom 查询
 window.postMessage({
   type: "AUTO_NOVEL_CRAWLER_REQUEST",
-  payload: { 
-      base_url: "https://n.novelia.cc/", 
-      cmd: "dom.querySelectorAll", 
-      data: { selector: "body" } 
+  payload: {
+      base_url: "https://n.novelia.cc/",
+      cmd: "dom.querySelectorAll",
+      data: { selector: "body" }
   }},"*");
 
 // 命令：对 机翻站（SPA 站）进行 dom 查询
 window.postMessage({
   type: "AUTO_NOVEL_CRAWLER_REQUEST",
-  payload: { 
-      base_url: "https://n.novelia.cc/", 
-      cmd: "dom.querySelectorAll", 
-      data: { selector: "body" } 
+  payload: {
+      base_url: "https://n.novelia.cc/",
+      cmd: "dom.querySelectorAll",
+      data: { selector: "body" }
   }},"*");
 
 // 命令：直接执行 http get 操作，对于 SPA 站只能获取裸 html
@@ -86,7 +87,7 @@ window.postMessage({
 // 监听结果
 window.addEventListener("message", (event) => {
   if (event.source !== window && event.type != "AUTO_NOVEL_CRAWLER_RESPONSE") return;
-  console.log("received message:", event.data);
+  console.log("[AutoNovel] received message:", event.data);
 }, false);
 
 ```
@@ -125,10 +126,10 @@ window.addEventListener("message", (event) => {
 - `cookies`：获取目标网站的 `cookies`。
 
 - `debugger`：用于在目标网站域内执行操作，绕过浏览器权限限制。
-  
+
   - 相关 API 调用见 `utils/api.ts` 中 `tab_*` 系列函数。
-  
-    
+
+
 
 **该插件会访问如下网站内容**：
 
@@ -143,3 +144,8 @@ window.addEventListener("message", (event) => {
 由于插件使用了 `debugger` 权限，可能会被浏览器标记为不安全插件。
 
 如果您发现了本插件存在任何**安全问题**或者**远程执行漏洞**，请及时联系 AutoNovel 团队。
+
+
+## TODO
+
+- [ ] 考虑迁移到 `https://www.npmjs.com/package/chrome-debugging-client` 库

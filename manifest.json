@@ -24,6 +24,14 @@
     "background": {
         "service_worker": "src/worker.ts"
     },
+    "externally_connectable": {
+      "matches": [
+        "*://*.novelia.cc/*",
+        "*://*.fishhawk.top/*",
+        "*://localhost/*",
+        "*://example.com/*"
+      ]
+    },
     "host_permissions": [
         "*://example.com/*",
         "*://echo.free.beeceptor.com/*",

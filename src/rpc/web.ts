@@ -18,6 +18,8 @@ export class WebCrawler {
   };
 
   public methods: ClientMethods = {
+    "base.ping": async () => "pong",
+
     "http.raw": async ({ url, requestInit }) => await this.api.http_raw_fetch(url, requestInit),
     "http.get": async ({ url, params }) => await this.api.http_get(url, params),
     "http.postJson": async ({ url, data, headers }) => await this.api.http_post_json(url, data, headers),

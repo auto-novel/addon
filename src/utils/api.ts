@@ -54,9 +54,7 @@ export class Api {
     if (this.initialized === false) {
       return;
     }
-    if (isDebug) {
-      console.info("[AutoNovel] crawler api closing");
-    }
+    console.debug("[AutoNovel] crawler api closing");
     await this.debugger.disconnect();
     await chrome.tabs.remove(this.tab.id!);
   }

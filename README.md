@@ -13,25 +13,43 @@
 ### 命令报文
 
 ```typescript
-enum MSG_TYPE {
+export enum MSG_TYPE {
   CRAWLER_REQ = "AUTO_NOVEL_CRAWLER_REQUEST",  // 发起爬虫请求
   RESPONSE = "AUTO_NOVEL_CRAWLER_RESPONSE",    // 爬虫请求的响应
   PING = "AUTO_NOVEL_CRAWLER_PING"             // 测试用命令
 }
 
-// 以 爬虫请求 为例
-type MSG_CRAWLER = {
-  type: MSG_TYPE.CRAWLER_REQ;                  // 命令类型
-  payload: AutoNovelCrawlerCommand;            // 爬虫请求参数
+interface BaseMessage {
+  id: string;             // 消息 ID，在多命令发射时用于匹配响应
+  type: MSG_TYPE;
+}
+
+export interface MSG_CRAWLER extends BaseMessage {
+  type: MSG_TYPE.CRAWLER_REQ;
+  payload: AutoNovelCrawlerCommand;
+}
+
+export interface MSG_RESPONSE extends BaseMessage {
+  type: MSG_TYPE.RESPONSE;
+  payload: ResponsePayload;
+}
+
+export type ResponsePayload = {
+  success: boolean;
+  result?: any;
+  error?: string;
 };
 
-type AutoNovelCrawlerCommand = {
+export type Message = MSG_PING | MSG_CRAWLER | MSG_RESPONSE;
+
+export type AutoNovelCrawlerCommand = {
   base_url: string;                    // 基础 URL，用于创建后台页面，可以认为是 Host
+  single?: boolean;                    // 是否为单次请求，true 则请求完成后关闭 tab
   cmd: keyof ClientMethods;            // 爬虫命令
   data?: any;                          // 爬虫参数
 };
 
-// 目前支持的爬虫命令：
+// 目前支持的爬虫命令：请以最新的 msg.ts 为准
 // 其中 `tab_*` 代表使用 debugger api 在目标 tab 上操作。
 export type ClientMethods = {
   "http.raw"(params: HttpRawParams): Promise<HttpRawResult>;
@@ -51,9 +69,35 @@ export type ClientMethods = {
 };
 ```
 
-
-
 ### 调用方法
+
+> 请注意将 extension id 替换为实际的 id。
+
+```javascript
+chrome.runtime.sendMessage(
+  "heaclbjdecgjhkbeigpkgoboipadjalj",
+  {
+    type: "AUTO_NOVEL_CRAWLER_PING"
+  },
+  (e) => console.log(e)
+);
+
+chrome.runtime.sendMessage(
+  "heaclbjdecgjhkbeigpkgoboipadjalj",
+  {
+    type: "AUTO_NOVEL_CRAWLER_REQUEST",
+    payload: {
+      base_url: "https://www.pixiv.net/novel/show.php?id=20701122",
+      cmd: "tab.dom.querySelectorAll",
+      data: { selector: "main" }
+    }
+  },
+  (e) => console.log(e)
+);
+```
+
+
+### 调用方法（调试用，旧方法，已废弃）
 
 ```typescript
 // 命令：对 机翻站（SPA 站）进行 dom 查询

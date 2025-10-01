@@ -70,6 +70,8 @@ export type CtlQuitParams = {
 export type CtrlQuitResult = void;
 
 export type ClientMethods = {
+  "base.ping"(): Promise<string>;
+
   "http.raw"(params: HttpRawParams): Promise<HttpRawResult>;
   "http.get"(params: HttpGetParams): Promise<HttpGetResult>;
   "http.postJson"(params: HttpPostJsonParams): Promise<HttpPostJsonResult>;

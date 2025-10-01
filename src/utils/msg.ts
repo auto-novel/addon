@@ -6,21 +6,36 @@ export enum MSG_TYPE {
   PING = "AUTO_NOVEL_CRAWLER_PING"
 }
 
-export type MSG_PING = {
-  type: MSG_TYPE.PING;
-  payload: null;
-};
+interface BaseMessage {
+  id: string;
+  type: MSG_TYPE;
+}
 
-export type MSG_CRAWLER = {
+export interface MSG_PING extends BaseMessage {
+  type: MSG_TYPE.PING;
+}
+
+export interface MSG_CRAWLER extends BaseMessage {
   type: MSG_TYPE.CRAWLER_REQ;
   payload: AutoNovelCrawlerCommand;
+}
+
+export interface MSG_RESPONSE extends BaseMessage {
+  type: MSG_TYPE.RESPONSE;
+  payload: ResponsePayload;
+}
+
+export type ResponsePayload = {
+  success: boolean;
+  result?: any;
+  error?: string;
 };
 
-export type Message = MSG_PING | MSG_CRAWLER;
+export type Message = MSG_PING | MSG_CRAWLER | MSG_RESPONSE;
 
 export type AutoNovelCrawlerCommand = {
   base_url: string;
-  continue?: boolean; // is this a single execution?
+  single?: boolean; // auto call close() after command
   cmd: keyof ClientMethods;
   data?: any;
 };

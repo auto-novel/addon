@@ -51,14 +51,14 @@ const messageFn = (message: Message, sender: chrome.runtime.MessageSender, sendR
     case MSG_TYPE.CRAWLER_REQ: {
       const msg = message as MSG_CRAWLER;
       const payload = msg.payload ?? {};
-      if (!payload.base_url) payload.base_url = payload.data?.url;
+      if (!payload.base_url) payload.base_url = payload.params?.url;
       payload.single = payload.single ?? true;
       msg.id = msg.id ?? "";
 
       const [senderId, crawler] = getOrCreateCrawler(sender, payload);
 
       crawler
-        .applyCommand(payload.cmd, payload.data)
+        .applyCommand(payload.cmd, payload.params)
         .then((result) => {
           console.debug("[AutoNovel] Crawler Result: ", result);
 

@@ -37,5 +37,5 @@ export type AutoNovelCrawlerCommand = {
   base_url: string;
   single?: boolean; // auto call close() after command
   cmd: keyof ClientMethods;
-  data?: any;
+  params?: any;
 };

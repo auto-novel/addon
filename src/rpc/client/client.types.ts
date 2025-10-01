@@ -18,6 +18,7 @@ export type HttpRawResult = SerializableResponse;
 export type HttpGetParams = {
   url: string;
   params?: Record<string, string>;
+  headers?: Record<string, string>;
 };
 export type HttpGetResult = SerializableResponse;
 

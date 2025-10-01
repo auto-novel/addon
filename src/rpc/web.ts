@@ -21,7 +21,7 @@ export class WebCrawler {
     "base.ping": async () => await "pong",
 
     "http.raw": async ({ url, requestInit }) => await this.api.http_raw_fetch(url, requestInit),
-    "http.get": async ({ url, params }) => await this.api.http_get(url, params),
+    "http.get": async ({ url, params, headers }) => await this.api.http_get(url, params, headers),
     "http.postJson": async ({ url, data, headers }) => await this.api.http_post_json(url, data, headers),
 
     "tab.switchTo": async ({ url }) => await this.api.tab_swith_to(url),

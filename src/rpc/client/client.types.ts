@@ -85,6 +85,7 @@ export type ClientMethods = {
 
   "dom.querySelectorAll"(params: DomQuerySelectorAllParams): Promise<DomQuerySelectorAllResult>;
 
+  "job.new"(params: void): Promise<void>;
   "job.quit"(params: JobQuitParams): Promise<JobQuitResult>;
 
   // NOTE(kuriko): 基于同一个 ws 连接进行多路复用可能会更优雅一些，但是实现起来比较麻烦，

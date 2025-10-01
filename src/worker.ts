@@ -3,7 +3,6 @@ import { WebCrawler } from "@rpc/web";
 import { MSG_TYPE, type AutoNovelCrawlerCommand, type Message, type MSG_CRAWLER, type MSG_RESPONSE } from "@utils/msg";
 import { do_redirection } from "@utils/redirect";
 import { Api } from "@utils/api";
-import type { CrawlerJob } from "@rpc/job";
 
 chrome.runtime.onInstalled.addListener(() => {
   console.debug(`[AutoNovel] CSC production mode: ${isDebug}`);
@@ -17,19 +16,19 @@ function getOrCreateCrawler(
 ): [number, WebCrawler] {
   const senderId = sender.tab?.id;
   if (!senderId) throw new Error(`Sender is unknown: ${sender}`);
-  const existingCrawler = crawlerInstances.get(senderId);
+  const crawler =
+    crawlerInstances.get(senderId) ??
+    (() => {
+      if (!payload.base_url) {
+        throw new Error("Cannot create a new crawler without a base_url.");
+      }
+      const newCrawler = new WebCrawler(payload.base_url);
+      crawlerInstances.set(senderId, newCrawler);
+      console.log(`[AutoNovel] New crawler instance created for tab ${senderId}.`);
+      return newCrawler;
+    })();
 
-  if (existingCrawler) {
-    return [senderId, existingCrawler];
-  } else {
-    if (!payload.base_url) {
-      throw new Error("Cannot create a new crawler without a base_url.");
-    }
-    const newCrawler = new WebCrawler(payload.base_url);
-    crawlerInstances.set(senderId, newCrawler);
-    console.log(`[AutoNovel] New crawler instance created for tab ${senderId}.`);
-    return [senderId, newCrawler];
-  }
+  return [senderId, crawler];
 }
 
 chrome.tabs.onRemoved.addListener(async (tabId) => {
@@ -51,9 +50,9 @@ const messageFn = (message: Message, sender: chrome.runtime.MessageSender, sendR
     }
     case MSG_TYPE.CRAWLER_REQ: {
       const msg = message as MSG_CRAWLER;
-      const payload = msg.payload || {};
+      const payload = msg.payload ?? {};
       if (!payload.base_url) payload.base_url = payload.data?.url;
-      payload.single = payload.single || false;
+      payload.single = payload.single ?? true;
 
       const [senderId, crawler] = getOrCreateCrawler(sender, payload);
 

@@ -4,9 +4,9 @@ import { WS_ADDRESS } from "@utils/consts";
 import type { Api } from "@/utils/api";
 import { ServerAbility } from "@rpc/server/api";
 import { ClientAbility } from "@rpc/client/api";
-import type { JobSubmitParams, JobSubmitResult, ServerMethods } from "@rpc/server/server.types";
+import type { ServerMethods } from "@rpc/server/server.types";
 import type { ClientMethods } from "@rpc/client/client.types";
-import type { CrawlerJob, JobToken } from "./job";
+import type { CrawlerJob } from "./job";
 
 export type RPCCSType = TypedJSONRPCServerAndClient<ClientMethods, ServerMethods>;
 export type WorkerId = string;
@@ -90,10 +90,10 @@ export class ClientSideCrawler {
     }
   }
 
-  public async job_submit(url: string): Promise<JobSubmitResult> {
-    await this.ensureConnected();
-    return await this.server.job_submit(this.worker_id, url);
-  }
+  // public async job_submit(url: string): Promise<JobSubmitResult> {
+  //   await this.ensureConnected();
+  //   return await this.server.job_submit(this.worker_id, url);
+  // }
 
   public async quit() {
     await this.rpc.rejectAllPendingRequests("Client is quitting");

@@ -1,6 +1,6 @@
 export function do_redirection() {
   chrome.tabs.query({ active: true, lastFocusedWindow: true }, (tabs) => {
-    const url = tabs[0].url || "";
+    const url = tabs[0].url ?? "";
 
     const providers = {
       kakuyomu: (url: string) => /kakuyomu\.jp\/works\/([0-9]+)/.exec(url)?.[1],

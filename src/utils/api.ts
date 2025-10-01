@@ -20,47 +20,69 @@ type Tab = chrome.tabs.Tab;
 
 export class Api {
   url: string;
-  initialized = false;
 
-  tab!: Tab;
-  debugger!: Debugger;
+  init = {
+    tab: false,
+    debugger: false
+  };
+
+  _tab!: Tab;
+  _debugger!: Debugger;
 
   constructor(url: string) {
     this.url = url;
-    this.initialized = false;
   }
 
-  async requireInit() {
-    if (this.initialized) return;
-    await this.init();
-    this.initialized = true;
+  get debugger() {
+    this.requireDebugger();
+    return this._debugger;
+  }
+
+  get tab() {
+    this.requireTab();
+    return this._tab;
+  }
+
+  async requireTab() {
+    if (this.init.tab) return;
+    await this.initTab();
+    this.init.tab = true;
+  }
+
+  async requireDebugger() {
+    if (this.init.debugger) return;
+    await this.initDebugger();
+    this.init.debugger = true;
   }
 
   // @requireInit
-  private async tab_wait(tab: Tab) {
-    await this.requireInit();
-    return new Promise<Tab>((resolve) => {
+  public async tab_wait(tab?: Tab) {
+    tab = tab ?? this.tab;
+    await this.requireTab();
+    return new Promise<void>((resolve) => {
       chrome.tabs.onUpdated.addListener(function listener(tabId, info) {
         // status == unloaded, loading, complete
         if (tabId === tab.id && info.status === "complete") {
           chrome.tabs.onUpdated.removeListener(listener);
-          resolve(tab);
+          resolve();
         }
       });
     });
   }
 
   public async close() {
-    if (this.initialized === false) {
+    if (this.init.tab === false) {
       return;
     }
     console.debug("[AutoNovel] crawler api closing");
-    await this.debugger.disconnect();
-    await chrome.tabs.remove(this.tab.id!);
+    if (this.init.debugger) await this.debugger.disconnect();
+    if (this.init.tab) await chrome.tabs.remove(this.tab.id!);
+    this.init.tab = false;
+    this.init.debugger = false;
   }
 
-  public async init() {
-    this.initialized = true;
+  public async initTab() {
+    this.init.tab = true;
 
     const createTabFn = async () =>
       chrome.tabs
@@ -69,23 +91,29 @@ export class Api {
           active: false
         })
         .then(async (tab) => {
-          return await WaitOrTimeout(this.tab_wait(tab), MAX_PAGE_LOAD_WAIT_TIME).catch(() => {
-            console.debug(`[AutoNovel] ${this.url} timeout, proceed anyway.`);
-            return tab;
-          });
+          return await WaitOrTimeout(this.tab_wait(tab), MAX_PAGE_LOAD_WAIT_TIME)
+            .then(() => tab)
+            .catch(() => {
+              console.debug(`[AutoNovel] ${this.url} timeout, proceed anyway.`);
+              return tab;
+            });
         });
 
-    this.tab = await retry(createTabFn, { retries: 3, minTimeout: 1000 });
-
-    this.debugger = new Debugger(this.tab);
-    await this.debugger.connect();
+    this._tab = await retry(createTabFn, { retries: 3, minTimeout: 1000 });
   }
 
-  // @requireInit
+  public async initDebugger() {
+    this.init.debugger = true;
+    await this.requireTab();
+    this._debugger = new Debugger(this.tab);
+    await this._debugger.connect();
+  }
+
+  // ==========================================================================
   public async tab_swith_to(url: string) {
-    await this.requireInit();
+    await this.requireTab();
     await chrome.tabs.update(this.tab!.id, { url }).then(async (tab) =>
-      WaitOrTimeout(this.tab_wait(tab || this.tab), MAX_PAGE_LOAD_WAIT_TIME)
+      WaitOrTimeout(this.tab_wait(tab ?? this.tab), MAX_PAGE_LOAD_WAIT_TIME)
         .then((tab) => {
           this.url = url;
         })
@@ -94,13 +122,13 @@ export class Api {
   }
 
   public async tab_set_alway_focus() {
-    await this.requireInit();
+    await this.requireTab();
     await this.debugger.tab_set_alway_focus();
     await this.tab_wait(this.tab);
   }
 
   public async tab_dom_querySelectorAll(selector: string): Promise<string[]> {
-    await this.requireInit();
+    await this.requireTab();
     return await this.debugger.dom_querySelectorAll(selector);
   }
 
@@ -111,7 +139,7 @@ export class Api {
         */
   // @requireInit
   public async tab_http_get(url: string, params = {}, headers = {}): Promise<SerializableResponse> {
-    await this.requireInit();
+    await this.requireTab();
     return await this.debugger.http_get(url, params, headers);
   }
 
@@ -122,7 +150,7 @@ export class Api {
         */
   // @requireInit
   public async tab_http_post_json(url: string, data = {}, headers = {}): Promise<SerializableResponse> {
-    await this.requireInit();
+    await this.requireTab();
     return await this.debugger.http_post_json(url, data, headers);
   }
 
@@ -190,7 +218,7 @@ export class Api {
 
   // @requireInit
   public async dom_query_selector_all(selector: string): Promise<string[]> {
-    await this.requireInit();
+    await this.requireTab();
     const results = await chrome.scripting.executeScript({
       target: { tabId: this.tab.id! },
       func: (selector: string): string[] => {

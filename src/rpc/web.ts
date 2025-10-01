@@ -33,6 +33,7 @@ export class WebCrawler {
 
     "dom.querySelectorAll": async ({ selector }) => await this.api.dom_query_selector_all(selector),
 
+    "job.new": async () => await this.api.tab_wait(),
     "job.quit": async () => await this.quit()
   };
 
@@ -41,6 +42,6 @@ export class WebCrawler {
   }
 
   public async ensureInit(url: string) {
-    this.api.init();
+    this.api.initTab();
   }
 }

@@ -1,6 +1,5 @@
 import { Api } from "@utils/api";
-import type { ClientMethods } from "./client/client.types";
-import { sleep } from "@utils/tools";
+import { deserializeRequest, type ClientMethods, type SerializableRequest } from "./client/client.types";
 
 export class WebCrawler {
   url: string;
@@ -20,7 +19,22 @@ export class WebCrawler {
   public methods: ClientMethods = {
     "base.ping": async () => await "pong",
 
-    "http.raw": async ({ url, requestInit }) => await this.api.http_raw_fetch(url, requestInit),
+    "http.raw": async ({ input, requestInit }) => {
+      let final_input: RequestInfo;
+      switch (typeof input) {
+        case "string": {
+          final_input = input;
+          break;
+        }
+        case "object": {
+          final_input = deserializeRequest(input as SerializableRequest);
+          break;
+        }
+        default:
+          throw new Error("Invalid input type for http.raw");
+      }
+      return await this.api.http_raw_fetch(final_input, requestInit);
+    },
     "http.get": async ({ url, params, headers }) => await this.api.http_get(url, params, headers),
     "http.postJson": async ({ url, data, headers }) => await this.api.http_post_json(url, data, headers),
 

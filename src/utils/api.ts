@@ -6,18 +6,6 @@ import retry from "async-retry";
 
 type Tab = chrome.tabs.Tab;
 
-// function requireInit(target: any, key: string, descriptor: any) {
-//     const originalMethod = descriptor.value;
-//     descriptor.value = async function(...args: any[]) {
-//         const This = this as { initialized: boolean; init: () => Promise<void> };
-//         if (!This.initialized) {
-//             await This.init();
-//         }
-//         return originalMethod.apply(this, args);
-//     }
-//     return descriptor;
-// }
-
 export class Api {
   url: string;
 
@@ -146,7 +134,7 @@ export class Api {
             cookies: 浏览器自动附加
         */
   // @requireInit
-  public async tab_http_get(url: string, params = {}, headers = {}): Promise<SerializableResponse> {
+  public async tab_http_get(url: string, params = {}, headers: [string, string][] = []): Promise<SerializableResponse> {
     await this.ensureTab();
     await this.ensureDebugger();
     return await this.debugger.http_get(url, params, headers);
@@ -158,16 +146,20 @@ export class Api {
             cookies: 浏览器自动附加
         */
   // @requireInit
-  public async tab_http_post_json(url: string, data = {}, headers = {}): Promise<SerializableResponse> {
+  public async tab_http_post_json(
+    url: string,
+    data = {},
+    headers: [string, string][] = []
+  ): Promise<SerializableResponse> {
     await this.ensureTab();
     await this.ensureDebugger();
     return await this.debugger.http_post_json(url, data, headers);
   }
 
   private async pack_response(response: Response): Promise<SerializableResponse> {
-    const headers: Record<string, string> = {};
+    const headers: [string, string][] = [];
     for (const [key, value] of response.headers.entries()) {
-      headers[key] = value;
+      headers.push([key, value]);
     }
 
     const bodyText = await response.text();
@@ -177,7 +169,7 @@ export class Api {
       status: response.status,
       statusText: response.statusText,
       ok: response.ok,
-      headers: headers,
+      headers,
       redirected: response.redirected,
       url: response.url,
       type: response.type
@@ -186,36 +178,31 @@ export class Api {
   }
 
   /*
-            以 extension 身份执行 fetch
-            CORS: 遵循 host_permissions 设定
-            cookies: 手动获取并添加
-        */
-  public async http_raw_fetch(url: string, requestInit?: RequestInit): Promise<SerializableResponse> {
-    const final_url = new URL(url).toString();
-    const resp = await fetch(final_url, requestInit);
+      以 extension 身份执行 fetch
+      CORS: 遵循 host_permissions 设定
+      cookies: 手动获取并添加
+  */
+  public async http_raw_fetch(input: RequestInfo | string, requestInit?: RequestInit): Promise<SerializableResponse> {
+    const resp = await fetch(input, requestInit);
     return this.pack_response(resp);
   }
 
-  public async http_get(url: string, params = {}, headers = {}): Promise<SerializableResponse> {
+  public async http_get(url: string, params = {}, headers: [string, string][] = []): Promise<SerializableResponse> {
     let final_url = new URL(url).toString();
     if (params) {
       final_url += "?" + new URLSearchParams(params).toString();
     }
-    const resp = await fetch(final_url, { method: "GET", cache: "no-cache", ...headers });
+    const resp = await fetch(final_url, { method: "GET", cache: "no-cache", headers });
     return this.pack_response(resp);
   }
 
-  public async http_post_json(url: string, data = {}, headers = {}): Promise<SerializableResponse> {
+  public async http_post_json(url: string, data = {}, headers: [string, string][] = []): Promise<SerializableResponse> {
     const final_url = new URL(url).toString();
     const jsonDataString = JSON.stringify(data || {});
     const resp = await fetch(final_url, {
       method: "POST",
       cache: "no-cache",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-        ...(headers || {})
-      },
+      headers: [["Content-Type", "application/json"], ["Accept", "application/json"], ...(headers || [])],
       body: JSON.stringify(jsonDataString)
     });
     return this.pack_response(resp);

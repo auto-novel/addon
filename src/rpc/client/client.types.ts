@@ -3,14 +3,69 @@ export type SerializableResponse = {
   status: number;
   statusText: string;
   ok: boolean;
-  headers: Record<string, string>;
+  headers: [string, string][];
   redirected: boolean;
   url: string;
   type: ResponseType;
 };
 
-export type HttpRawParams = {
+export interface SerializableRequest {
   url: string;
+  // RequestInit 的所有可序列化属性
+  method: string;
+  headers?: [string, string][];
+  body?: string; // base64 encoded body
+  mode?: RequestMode;
+  credentials: RequestCredentials;
+  cache: RequestCache;
+  redirect?: RequestRedirect;
+  referrer?: string;
+  integrity?: string;
+}
+export async function serializeRequest(request: RequestInfo): Promise<SerializableRequest | string> {
+  if (typeof request === "string") {
+    return request;
+  }
+
+  const headers: [string, string][] = [];
+  request.headers.forEach((k, v) => headers.push([k, v]));
+
+  const req: SerializableRequest = {
+    url: request.url,
+    method: request.method,
+    headers,
+    body: request.body ? await request.text() : undefined,
+    mode: request.mode,
+    credentials: request.credentials,
+    cache: request.cache,
+    redirect: request.redirect,
+    referrer: request.referrer,
+    integrity: request.integrity
+  };
+  return req;
+}
+export function deserializeRequest(req: SerializableRequest): RequestInfo {
+  if (typeof req === "string") {
+    return req;
+  }
+
+  const init: RequestInit = {
+    method: req.method,
+    headers: new Headers(req.headers),
+    body: req.body,
+    mode: req.mode,
+    credentials: req.credentials,
+    cache: req.cache,
+    redirect: req.redirect,
+    referrer: req.referrer,
+    integrity: req.integrity
+  };
+
+  return new Request(req.url, init);
+}
+
+export type HttpRawParams = {
+  input: SerializableRequest | string;
   requestInit?: RequestInit;
 };
 export type HttpRawResult = SerializableResponse;
@@ -18,14 +73,14 @@ export type HttpRawResult = SerializableResponse;
 export type HttpGetParams = {
   url: string;
   params?: Record<string, string>;
-  headers?: Record<string, string>;
+  headers?: [string, string][];
 };
 export type HttpGetResult = SerializableResponse;
 
 export type HttpPostJsonParams = {
   url: string;
   data?: Record<string, string>;
-  headers?: Record<string, string>;
+  headers?: [string, string][];
 };
 export type HttpPostJsonResult = SerializableResponse;
 
@@ -43,7 +98,7 @@ export type TabHttpGetResult = SerializableResponse;
 export type TabHttpPostJsonParams = {
   url: string;
   data?: Record<string, string>;
-  headers?: Record<string, string>;
+  headers?: [string, string][];
 };
 export type TabHttpPostJsonResult = SerializableResponse;
 

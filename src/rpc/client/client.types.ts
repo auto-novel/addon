@@ -27,8 +27,8 @@ export async function serializeRequest(request: RequestInfo): Promise<Serializab
     return request;
   }
 
-  const headers: [string, string][] = [];
-  request.headers.forEach((k, v) => headers.push([k, v]));
+  const headers: [string, string][] = Array.from(request.headers.entries());
+  console.log("serializeRequest: ", headers);
 
   const req: SerializableRequest = {
     url: request.url,
@@ -49,6 +49,7 @@ export function deserializeRequest(req: SerializableRequest): RequestInfo {
     return req;
   }
 
+  console.log("deserializeRequest: ", req);
   const init: RequestInit = {
     method: req.method,
     headers: new Headers(req.headers),
@@ -64,11 +65,11 @@ export function deserializeRequest(req: SerializableRequest): RequestInfo {
   return new Request(req.url, init);
 }
 
-export type HttpRawParams = {
+export type HttpFetchParams = {
   input: SerializableRequest | string;
   requestInit?: RequestInit;
 };
-export type HttpRawResult = SerializableResponse;
+export type HttpFetchResult = SerializableResponse;
 
 export type HttpGetParams = {
   url: string;
@@ -88,6 +89,12 @@ export type TabSwitchToParams = {
   url: string;
 };
 export type TabSwitchToResult = void;
+
+export type TabHttpFetchParams = {
+  input: SerializableRequest | string;
+  requestInit?: RequestInit;
+};
+export type TabHttpFetchResult = SerializableResponse;
 
 export type TabHttpGetParams = {
   url: string;
@@ -112,11 +119,14 @@ export type DomQuerySelectorAllParams = {
 };
 export type DomQuerySelectorAllResult = string[];
 
-export type JobQuitParams = {
+export type JobNewParams = { url: string };
+export type JobNewResult = { job_id: string };
+
+export type JobQuitParams = void;
+export type JobQuitResult = {
   status: "completed" | "failed" | "canceled" | "ignored";
   reason?: string;
 };
-export type JobQuitResult = void;
 
 // export type CtlQuitParams = {
 //   worker_id: WorkerId;
@@ -126,11 +136,12 @@ export type JobQuitResult = void;
 export type ClientMethods = {
   "base.ping"(): Promise<string>;
 
-  "http.raw"(params: HttpRawParams): Promise<HttpRawResult>;
+  "http.fetch"(params: HttpFetchParams): Promise<HttpFetchResult>;
   "http.get"(params: HttpGetParams): Promise<HttpGetResult>;
   "http.postJson"(params: HttpPostJsonParams): Promise<HttpPostJsonResult>;
 
   "tab.switchTo"(params: TabSwitchToParams): Promise<TabSwitchToResult>;
+  "tab.http.fetch"(params: TabHttpFetchParams): Promise<TabHttpFetchResult>;
   "tab.http.get"(params: TabHttpGetParams): Promise<TabHttpGetResult>;
   "tab.http.postJson"(params: TabHttpPostJsonParams): Promise<TabHttpPostJsonResult>;
   "tab.dom.querySelectorAll"(params: DomQuerySelectorAllParams): Promise<DomQuerySelectorAllResult>;
@@ -139,7 +150,7 @@ export type ClientMethods = {
 
   "dom.querySelectorAll"(params: DomQuerySelectorAllParams): Promise<DomQuerySelectorAllResult>;
 
-  "job.new"(params: void): Promise<void>;
+  "job.new"(params: JobNewParams): Promise<JobNewResult>;
   "job.quit"(params: JobQuitParams): Promise<JobQuitResult>;
 
   // NOTE(kuriko): 基于同一个 ws 连接进行多路复用可能会更优雅一些，但是实现起来比较麻烦，

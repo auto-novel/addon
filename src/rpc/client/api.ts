@@ -12,7 +12,7 @@ export class ClientAbility {
     this.rpc = rpc;
     this.api = api;
 
-    this.rpc.addMethod("http.raw", ({ url, requestInit }) => this.api.http_raw_fetch(url, requestInit));
+    this.rpc.addMethod("http.raw", ({ url, requestInit }) => this.api.http_fetch(url, requestInit));
     this.rpc.addMethod("http.get", ({ url, params }) => this.api.http_get(url, params));
     this.rpc.addMethod("http.postJson", ({ url, data, headers }) => this.api.http_post_json(url, data, headers));
 

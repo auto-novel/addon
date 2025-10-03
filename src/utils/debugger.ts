@@ -1,19 +1,39 @@
-import type { SerializableResponse } from "@rpc/client/client.types";
+import { serializeRequest, type SerializableRequest, type SerializableResponse } from "@rpc/client/client.types";
+import { pack_response, SerReq2RequestInfo, sleep } from "./tools";
 
 type Tab = chrome.tabs.Tab;
 
 export class Debugger {
   tab: Tab;
-  debugee: { tabId: number };
+  debuggee: { tabId: number };
+
+  private init = {
+    fetch: false,
+    page: false
+  };
 
   constructor(tab: Tab) {
     this.tab = tab;
-    this.debugee = { tabId: tab.id! };
+    this.debuggee = { tabId: tab.id! };
+  }
+
+  private async enableFetch() {
+    if (this.init.fetch) return;
+    await chrome.debugger.sendCommand(this.debuggee, "Fetch.enable", {
+      patterns: [{ urlPattern: "*" }]
+    });
+    this.init.fetch = true;
+    console.log("[Debugger] Fetch interception enabled.");
+  }
+
+  private async enablePage() {
+    if (this.init.page) return;
+    await chrome.debugger.sendCommand(this.debuggee, "Page.enable");
+    this.init.page = true;
   }
 
   public async connect() {
     await chrome.debugger.attach({ tabId: this.tab.id! }, "1.3");
-    // await chrome.debugger.sendCommand(this.debugee, "Network.enable");
   }
 
   public async disconnect() {
@@ -24,8 +44,8 @@ export class Debugger {
   private async danger_remote_execute_asap(js: string): Promise<void> {
     const TAG = "[AutoNovel.RCE.asap]";
     console.warn(`${TAG} executing js: `, js);
-    await chrome.debugger.sendCommand(this.debugee, "Page.enable");
-    const result = await chrome.debugger.sendCommand(this.debugee, "Page.addScriptToEvaluateOnNewDocument", {
+    await this.enablePage();
+    const result = await chrome.debugger.sendCommand(this.debuggee, "Page.addScriptToEvaluateOnNewDocument", {
       source: js
     });
     console.log(`${TAG} script result: `, result);
@@ -36,7 +56,7 @@ export class Debugger {
   private async danger_remote_execute<T>(js: string): Promise<T> {
     const TAG = "[AutoNovel.RCE]";
     console.warn(`${TAG} executing js: `, js);
-    const ret = (await chrome.debugger.sendCommand(this.debugee, "Runtime.evaluate", {
+    const ret = (await chrome.debugger.sendCommand(this.debuggee, "Runtime.evaluate", {
       expression: js,
       awaitPromise: true,
       returnByValue: true
@@ -87,6 +107,124 @@ export class Debugger {
         Array.from(document.querySelectorAll("${selector}")).map(e => e.outerHTML)
     `)) as string[];
     return ret;
+  }
+
+  private async spoofNetworkRequests(url: string) {
+    const debuggee = this.debuggee;
+
+    await this.enableFetch();
+
+    const onEventHandler = (source: chrome.debugger.Debuggee, method: string, params: any) => {
+      if (source.tabId !== this.tab.id || method !== "Fetch.requestPaused") {
+        return;
+      }
+      const requestId = params.requestId as string;
+      const requestUrl = params.request.url as string;
+
+      if (requestUrl !== url) {
+        chrome.debugger.sendCommand(debuggee, "Fetch.continueRequest", { requestId });
+        return;
+      }
+
+      console.log(`[Debugger] Intercepted our target request: ${requestUrl}`);
+
+      // 获取原始请求头
+      const originalHeaders = params.request.headers;
+
+      // 伪装请求头
+      const spoofedHeaders = originalHeaders
+        .filter((h: any) => h.name.toLowerCase() !== "origin")
+        .filter((h: any) => h.name.toLowerCase() !== "referer")
+        .filter((h: any) => h.name.toLowerCase() !== "x-requested-with")
+        .concat([
+          { name: "Origin", value: new URL(url).origin },
+          { name: "Referer", value: new URL(url).origin + "/" },
+          { name: "X-Requested-With", value: "XMLHttpRequest" }
+        ]);
+
+      console.log("[Debugger] Spoofed Headers:", spoofedHeaders);
+
+      chrome.debugger.sendCommand(this.debuggee, "Fetch.continueRequest", {
+        requestId: requestId,
+        headers: spoofedHeaders
+      });
+    };
+    chrome.debugger.onEvent.addListener(onEventHandler);
+  }
+
+  public async http_spoof(url: string): Promise<void> {
+    await this.spoofNetworkRequests(url);
+  }
+
+  public async http_fetch(
+    input: SerializableRequest | string,
+    requestInit?: RequestInit
+  ): Promise<SerializableResponse> {
+    const input_ser = JSON.stringify(input);
+    const js = `
+      (async () => {
+        function deserializeRequest(req) {
+          if (typeof req === "string") {
+            return req;
+          }
+
+          const init = {
+            method: req.method,
+            headers: new Headers(req.headers),
+            body: req.body,
+            mode: req.mode,
+            credentials: req.credentials,
+            cache: req.cache,
+            redirect: req.redirect,
+            referrer: req.referrer,
+            integrity: req.integrity
+          };
+
+          return new Request(req.url, init);
+        }
+
+        function SerReq2RequestInfo(input) {
+            let final_input;
+            switch (typeof input) {
+              case "string": {
+                final_input = input;
+                break;
+              }
+              case "object": {
+                final_input = deserializeRequest(input);
+                break;
+              }
+              default:
+                throw new Error("Invalid input type for http.raw");
+            }
+            return final_input;
+        }
+
+        const input = SerReq2RequestInfo(JSON.parse('${input_ser}'));
+        const requestInit = JSON.parse('${JSON.stringify(requestInit || {})}');
+        const response = await fetch(input, requestInit);
+
+        const headers = {};
+        for (const [key, value] of response.headers.entries()) {
+          headers[key] = value;
+        }
+
+        const bodyText = await response.text();
+
+        const serializableResponse = {
+          body: bodyText,
+          status: response.status,
+          statusText: response.statusText,
+          ok: response.ok,
+          headers: headers,
+          redirected: response.redirected,
+          url: response.url,
+          type: response.type,
+        };
+        return serializableResponse;
+      })();
+    `;
+    return await this.danger_remote_execute<SerializableResponse>(js);
   }
 
   public async http_get(url: string, params = {}, headers = {}): Promise<SerializableResponse> {

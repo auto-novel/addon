@@ -1,35 +1,59 @@
 import { Debugger } from "@utils/debugger";
-import { WaitOrTimeout } from "@utils/tools";
-import { isDebug, MAX_PAGE_LOAD_WAIT_TIME } from "@utils/consts";
-import type { SerializableResponse } from "@rpc/client/client.types";
+import { pack_response, WaitOrTimeout } from "@utils/tools";
+import { MAX_PAGE_LOAD_WAIT_TIME } from "@utils/consts";
+import type { SerializableRequest, SerializableResponse } from "@rpc/client/client.types";
 import retry from "async-retry";
 
 type Tab = chrome.tabs.Tab;
 
 export class Api {
-  url: string;
+  private _url: string;
 
-  init = {
+  get url() {
+    return this._url;
+  }
+  async set_url(url: string) {
+    this._url = url;
+    if (this.init.tab && this.tab.url !== url) {
+      await this.tab_swith_to(url);
+    }
+  }
+
+  private init = {
     tab: false,
     debugger: false
   };
 
-  tab!: Tab;
-  debugger!: Debugger;
+  private tab!: Tab;
+  private debugger!: Debugger;
 
   constructor(url: string) {
-    this.url = url;
+    this._url = url;
+  }
+
+  get tab_id() {
+    return this.tab?.id;
   }
 
   async ensureTab() {
-    if (this.init.tab) return;
+    if (this.init.tab) {
+      if (this.url != this.tab.url) {
+        await this.tab_swith_to(this.url);
+      }
+      return;
+    }
     await this.initTab();
     this.init.tab = true;
   }
 
   async ensureDebugger() {
-    await this.ensureTab();
-    if (this.init.debugger) return;
+    if (this.init.debugger) {
+      if (this.tab && this.debugger.tab.id !== this.tab.id) {
+        await this.debugger.disconnect();
+        await this.initDebugger();
+      }
+      return;
+    }
     await this.initDebugger();
     this.init.debugger = true;
   }
@@ -95,7 +119,13 @@ export class Api {
       return;
     }
     this.loadDebuggerPromise = (async () => {
-      const dbg = new Debugger(this.tab);
+      const tab =
+        this.tab ||
+        (await (async () => {
+          const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+          return tabs[0];
+        })());
+      const dbg = new Debugger(tab);
       await dbg.connect();
       return dbg;
     })();
@@ -105,12 +135,12 @@ export class Api {
 
   // ==========================================================================
   public async tab_swith_to(url: string) {
-    await this.ensureTab();
+    if (!this.init.tab) {
+      await this.initTab();
+    }
     await chrome.tabs.update(this.tab!.id, { url }).then((tab) =>
       WaitOrTimeout(this.wait_any_tab(tab ?? this.tab), MAX_PAGE_LOAD_WAIT_TIME)
-        .then(() => {
-          this.url = url;
-        })
+        .then(() => (this._url = url))
         .catch(() => {})
     );
   }
@@ -126,6 +156,20 @@ export class Api {
     await this.ensureTab();
     await this.ensureDebugger();
     return await this.debugger.dom_querySelectorAll(selector);
+  }
+
+  // Tab http fetch
+  public async tab_http_fetch(
+    input: SerializableRequest | string,
+    requestInit?: RequestInit
+  ): Promise<SerializableResponse> {
+    await this.ensureTab();
+    await this.ensureDebugger();
+    // const url = typeof input === "string" ? input : input.url;
+    // await this.debugger.http_spoof(url);
+    // const resp = await fetch(input, requestInit);
+    // return pack_response(resp);
+    return await this.debugger.http_fetch(input, requestInit);
   }
 
   /*
@@ -156,35 +200,14 @@ export class Api {
     return await this.debugger.http_post_json(url, data, headers);
   }
 
-  private async pack_response(response: Response): Promise<SerializableResponse> {
-    const headers: [string, string][] = [];
-    for (const [key, value] of response.headers.entries()) {
-      headers.push([key, value]);
-    }
-
-    const bodyText = await response.text();
-
-    const serializableResponse = {
-      body: bodyText,
-      status: response.status,
-      statusText: response.statusText,
-      ok: response.ok,
-      headers,
-      redirected: response.redirected,
-      url: response.url,
-      type: response.type
-    };
-    return serializableResponse;
-  }
-
   /*
       以 extension 身份执行 fetch
       CORS: 遵循 host_permissions 设定
       cookies: 手动获取并添加
   */
-  public async http_raw_fetch(input: RequestInfo | string, requestInit?: RequestInit): Promise<SerializableResponse> {
+  public async http_fetch(input: RequestInfo | string, requestInit?: RequestInit): Promise<SerializableResponse> {
     const resp = await fetch(input, requestInit);
-    return this.pack_response(resp);
+    return pack_response(resp);
   }
 
   public async http_get(url: string, params = {}, headers: [string, string][] = []): Promise<SerializableResponse> {
@@ -193,7 +216,7 @@ export class Api {
       final_url += "?" + new URLSearchParams(params).toString();
     }
     const resp = await fetch(final_url, { method: "GET", cache: "no-cache", headers });
-    return this.pack_response(resp);
+    return pack_response(resp);
   }
 
   public async http_post_json(url: string, data = {}, headers: [string, string][] = []): Promise<SerializableResponse> {
@@ -205,7 +228,7 @@ export class Api {
       headers: [["Content-Type", "application/json"], ["Accept", "application/json"], ...(headers || [])],
       body: JSON.stringify(jsonDataString)
     });
-    return this.pack_response(resp);
+    return pack_response(resp);
   }
 
   public async cookies_get(url: string): Promise<chrome.cookies.Cookie[]> {

@@ -8,36 +8,49 @@ chrome.runtime.onInstalled.addListener(() => {
   console.debug(`[AutoNovel] CSC production mode: ${isDebug}`);
 });
 
-const crawlerInstances: Map<number, WebCrawler> = new Map();
+const crawlerInstances: Map<string, WebCrawler> = new Map();
 
-function getOrCreateCrawler(
-  sender: chrome.runtime.MessageSender,
-  payload: AutoNovelCrawlerCommand
-): [number, WebCrawler] {
-  const senderId = sender.tab?.id;
-  if (!senderId) throw new Error(`Sender is unknown: ${sender}`);
+function getOrCreateCrawler(payload: AutoNovelCrawlerCommand): [string, WebCrawler] {
+  // Get or Create a job id.
+  const job_id = payload.job_id ?? crypto.randomUUID();
+
   const crawler =
-    crawlerInstances.get(senderId) ??
+    crawlerInstances.get(job_id) ??
     (() => {
       if (!payload.base_url) {
         throw new Error("Cannot create a new crawler without a base_url.");
       }
       const newCrawler = new WebCrawler(payload.base_url);
-      crawlerInstances.set(senderId, newCrawler);
-      console.log(`[AutoNovel] New crawler instance created for tab ${senderId}.`);
+      crawlerInstances.set(job_id, newCrawler);
+      console.log(`[AutoNovel] New crawler instance created for id ${job_id}.`);
       return newCrawler;
     })();
 
-  return [senderId, crawler];
+  if (crawler.url != payload.base_url) {
+    // Change the base URL if it's different.
+    // This is for the case when not using single mode.
+    crawler.url = payload.base_url;
+  }
+
+  return [job_id, crawler];
 }
 
 chrome.tabs.onRemoved.addListener(async (tabId) => {
-  const crawler = crawlerInstances.get(tabId);
-  if (crawler) {
-    crawlerInstances.delete(tabId);
-    await crawler.quit();
-    console.log(`[AutoNovel] Crawler instance for tab ${tabId} has been cleaned up.`);
+  const toRemove = crawlerInstances
+    .entries()
+    .filter(([_, crawler]) => crawler.api.tab_id === tabId)
+    .toArray();
+
+  if (toRemove.length === 0) return;
+
+  for (const [job_id, _] of toRemove) {
+    crawlerInstances.delete(job_id);
   }
+  const quitPromises = toRemove.map(([_, crawler]) => {
+    if (!crawler) return Promise.resolve();
+    return crawler.quit();
+  });
+  await Promise.all(quitPromises);
 });
 
 const messageFn = (message: Message, sender: chrome.runtime.MessageSender, sendResponse: (response: any) => void) => {
@@ -53,9 +66,9 @@ const messageFn = (message: Message, sender: chrome.runtime.MessageSender, sendR
       const payload = msg.payload ?? {};
       if (!payload.base_url) payload.base_url = payload.params?.url;
       payload.single = payload.single ?? true;
-      msg.id = msg.id ?? "";
+      msg.id = msg.id ?? crypto.randomUUID();
 
-      const [senderId, crawler] = getOrCreateCrawler(sender, payload);
+      const [job_id, crawler] = getOrCreateCrawler(payload);
 
       crawler
         .applyCommand(payload.cmd, payload.params)
@@ -79,7 +92,7 @@ const messageFn = (message: Message, sender: chrome.runtime.MessageSender, sendR
         })
         .finally(async () => {
           if (!payload.single) return;
-          crawlerInstances.delete(sender.tab!.id!);
+          crawlerInstances.delete(job_id);
           await crawler.quit();
         });
       break;
@@ -96,29 +109,36 @@ chrome.runtime.onMessageExternal.addListener(messageFn);
 chrome.action.onClicked.addListener(async () => {
   if (isDebug) {
     // const c = new WebCrawler("https://www.pixiv.net/novel/show.php?id=20701122");
-    const api = new Api("https://echo.free.beeceptor.com");
-    const fut = api.tab_swith_to("https://www.pixiv.net/novel/show.php?id=20701122");
+    const api = new Api("https://example.com");
     {
-      const resp = await api.http_get("https://echo.free.beeceptor.com", { a: "1", b: "2" }, { "X-Test": "123" });
+      const resp = await api.http_get("https://echo.free.beeceptor.com", { a: "1", b: "2" }, [["X-Test", "123"]]);
       console.log(resp);
     }
     {
-      const resp = await api.http_post_json("https://echo.free.beeceptor.com", { hello: "world" }, { "X-Test": "123" });
+      const resp = await api.http_fetch("https://echo.free.beeceptor.com");
       console.log(resp);
     }
     {
-      await fut;
-      const resp = await api.tab_http_get("https://echo.free.beeceptor.com", { a: "1", b: "2" }, { "X-Test": "123" });
+      const resp = await api.tab_http_fetch("https://echo.free.beeceptor.com");
       console.log(resp);
     }
-    {
-      const resp = await api.tab_http_post_json(
-        "https://echo.free.beeceptor.com",
-        { hello: "world" },
-        { "X-Test": "123" }
-      );
-      console.log(resp);
-    }
+    // {
+    //   const resp = await api.http_post_json("https://echo.free.beeceptor.com", { hello: "world" }, [["X-Test", "123"]]);
+    //   console.log(resp);
+    // }
+    // {
+    //   await fut;
+    //   const resp = await api.tab_http_get("https://echo.free.beeceptor.com", { a: "1", b: "2" }, [["X-Test", "123"]]);
+    //   console.log(resp);
+    // }
+    // {
+    //   const resp = await api.tab_http_post_json(
+    //     "https://echo.free.beeceptor.com",
+    //     { hello: "world" },
+    //     [["X-Test", "123"]]
+    //   );
+    //   console.log(resp);
+    // }
   } else {
     do_redirection();
   }

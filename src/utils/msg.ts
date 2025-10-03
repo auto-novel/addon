@@ -7,8 +7,8 @@ export enum MSG_TYPE {
 }
 
 interface BaseMessage {
-  id?: string;
   type: MSG_TYPE;
+  id?: string;
 }
 
 export interface MSG_PING extends BaseMessage {
@@ -36,6 +36,7 @@ export type Message = MSG_PING | MSG_CRAWLER | MSG_RESPONSE;
 export type AutoNovelCrawlerCommand = {
   base_url: string;
   single?: boolean; // auto call close() after command
+  job_id?: string;
   cmd: keyof ClientMethods;
   params?: any;
 };

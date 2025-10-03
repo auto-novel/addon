@@ -1,4 +1,6 @@
-export async function sleep(ms: number) {
+import { deserializeRequest, type SerializableRequest, type SerializableResponse } from "@rpc/client/client.types";
+
+export function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
@@ -18,4 +20,42 @@ export async function WaitOrTimeout<T>(task: Promise<T>, timeout: number): Promi
       return Promise.reject("Timeout");
     })
   ]);
+}
+
+export async function pack_response(response: Response): Promise<SerializableResponse> {
+  const headers: [string, string][] = [];
+  for (const [key, value] of response.headers.entries()) {
+    headers.push([key, value]);
+  }
+
+  const bodyText = await response.text();
+
+  const serializableResponse = {
+    body: bodyText,
+    status: response.status,
+    statusText: response.statusText,
+    ok: response.ok,
+    headers,
+    redirected: response.redirected,
+    url: response.url,
+    type: response.type
+  };
+  return serializableResponse;
+}
+
+export function SerReq2RequestInfo(input: SerializableRequest | string) {
+  let final_input: RequestInfo;
+  switch (typeof input) {
+    case "string": {
+      final_input = input;
+      break;
+    }
+    case "object": {
+      final_input = deserializeRequest(input as SerializableRequest);
+      break;
+    }
+    default:
+      throw new Error("Invalid input type for http.raw");
+  }
+  return final_input;
 }

@@ -113,24 +113,9 @@ export class Api {
     }
 
     await this.ensureURL();
-
-    const createTabFn = () =>
-      chrome.tabs
-        .create({
-          url: this.url!.toString(),
-          active: false
-        })
-        .then(async (tab) => {
-          return await WaitOrTimeout(this.wait_any_tab(tab), MAX_PAGE_LOAD_WAIT_TIME)
-            .then(() => tab)
-            .catch(() => {
-              console.debug(`[AutoNovel] ${this.url} timeout, proceed anyway.`);
-              return tab;
-            });
-        });
-
-    this.loadTabPromise = retry(createTabFn, { retries: 3, minTimeout: 1000 });
-    this.tab = await this.loadTabPromise;
+    const tab = await chrome.tabs.create({ url: this.url!, active: false });
+    await this.wait_any_tab(tab);
+    this.tab = tab;
     this.init.tab = true;
   }
 
@@ -281,10 +266,10 @@ export class Api {
     }
   }
 
-  public async enable_local_bypass(url: string): Promise<void> {
+  public async enable_local_bypass(url: string, origin?: string, referer?: string): Promise<void> {
     await this.ensureDebugger();
     await this.debugger.enable_disable_cors();
-    await this.debugger.spoof_request_start(url);
+    await this.debugger.spoof_request_start(url, origin, referer);
   }
 
   public async disable_local_bypass(url: string): Promise<void> {

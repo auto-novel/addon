@@ -38,7 +38,7 @@ export class WebCrawler {
   public methods: ClientMethods = {
     "base.ping": async () => await "pong",
 
-    "local.bypass.enable": async ({ url }) => await this.api.enable_local_bypass(url),
+    "local.bypass.enable": async ({ origin, referer, url }) => await this.api.enable_local_bypass(url, origin, referer),
     "local.bypass.disable": async ({ url }) => await this.api.disable_local_bypass(url),
 
     "http.fetch": async ({ input, requestInit }) => {

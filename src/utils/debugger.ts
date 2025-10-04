@@ -119,8 +119,8 @@ export class Debugger {
     input: SerializableRequest | string,
     requestInit?: RequestInit
   ): Promise<SerializableResponse> {
-    const url = typeof input === "string" ? input : input.url;
     await this.enable_disable_cors();
+    console.log(this.tab);
     const input_ser = JSON.stringify(input);
     const js = `
       (async () => {
@@ -272,7 +272,7 @@ export class Debugger {
       return;
     }
 
-    const { requestId, request } = params;
+    const { requestId, request, resourceType } = params;
 
     if (params.responseStatusCode) {
       if (this.init.cors) {
@@ -301,8 +301,8 @@ export class Debugger {
     }
   };
 
-  private handleSPOOFRequest =
-    (url: string) => async (source: chrome.debugger.Debuggee, method: string, params: any) => {
+  private handleSPOOFRequest(url: string, origin?: string, referer?: string) {
+    return async (source: chrome.debugger.Debuggee, method: string, params: any) => {
       const requestId = params.requestId as string;
       const requestUrl = params.request.url as string;
 
@@ -311,8 +311,8 @@ export class Debugger {
       const originalHeaders = params.request.headers;
 
       // Origin should be right.
-      const targetOrigin = new URL(url).origin;
-      const targetReferer = targetOrigin + "/";
+      const targetOrigin = origin ?? new URL(url).origin;
+      const targetReferer = referer ?? targetOrigin + "/";
 
       const spoofedHeaders = Object.entries(originalHeaders)
         .map(([name, value]) => ({ name, value }))
@@ -334,12 +334,13 @@ export class Debugger {
         console.error(`Failed to continue request for requestId ${requestId}:`, e);
       }
     };
+  }
 
-  private handleResponse = async (source: chrome._debugger.DebuggerSession, method: string, params: any) => {
+  private async handleResponse(source: chrome._debugger.DebuggerSession, method: string, params: any) {
     const { requestId, request, responseHeaders, responseStatusCode } = params;
 
-    // const originHeader = request.headers["Origin"] || request.headers["origin"];
-    const originToAllow = new URL(this.tab.url!).origin || "*";
+    const originHeader = request.headers["Origin"] || request.headers["origin"];
+    const originToAllow = new URL(this.tab.url || this.tab.pendingUrl || originHeader)?.origin || "*";
 
     const newHeaders = responseHeaders ? [...responseHeaders] : [];
 
@@ -363,7 +364,7 @@ export class Debugger {
     } catch (e) {
       console.error(`Failed to continue response for requestId ${requestId}:`, e);
     }
-  };
+  }
 
   public async enable_disable_cors() {
     if (this.init.cors) return;
@@ -372,9 +373,9 @@ export class Debugger {
   }
 
   private spoofFuncs = new Map();
-  public async spoof_request_start(url: string) {
+  public async spoof_request_start(url: string, origin?: string, referer?: string) {
     await this.enableFetch();
-    const func = this.handleSPOOFRequest(url);
+    const func = this.handleSPOOFRequest(url, origin, referer);
     if (this.spoofFuncs.has(url)) {
       return;
     }

@@ -22,6 +22,9 @@ export default defineConfig([
       "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/no-unused-vars": "off",
       "require-await": "error"
+    },
+    languageOptions: {
+      globals: { ...globals.browser, ...globals.webextensions }
     }
   }
 ]);

@@ -9,7 +9,8 @@ export class Debugger {
 
   private init = {
     fetch: false,
-    page: false
+    page: false,
+    cors: false
   };
 
   constructor(tab: Tab) {
@@ -20,8 +21,9 @@ export class Debugger {
   private async enableFetch() {
     if (this.init.fetch) return;
     await chrome.debugger.sendCommand(this.debuggee, "Fetch.enable", {
-      patterns: [{ urlPattern: "*" }]
+      patterns: [{ requestStage: "Request" }, { requestStage: "Response" }]
     });
+    chrome.debugger.onEvent.addListener(this.onEventListener);
     this.init.fetch = true;
     console.log("[Debugger] Fetch interception enabled.");
   }
@@ -37,6 +39,10 @@ export class Debugger {
   }
 
   public async disconnect() {
+    this.spoofFuncs.clear();
+    this.init.cors = false;
+    chrome.debugger.onEvent.removeListener(this.onEventListener);
+    await chrome.debugger.sendCommand(this.debuggee, "Fetch.disable");
     await chrome.debugger.detach({ tabId: this.tab.id });
   }
 
@@ -109,57 +115,13 @@ export class Debugger {
     return ret;
   }
 
-  private async spoofNetworkRequests(url: string) {
-    const debuggee = this.debuggee;
-
-    await this.enableFetch();
-
-    const onEventHandler = (source: chrome.debugger.Debuggee, method: string, params: any) => {
-      if (source.tabId !== this.tab.id || method !== "Fetch.requestPaused") {
-        return;
-      }
-      const requestId = params.requestId as string;
-      const requestUrl = params.request.url as string;
-
-      if (requestUrl !== url) {
-        chrome.debugger.sendCommand(debuggee, "Fetch.continueRequest", { requestId });
-        return;
-      }
-
-      console.log(`[Debugger] Intercepted our target request: ${requestUrl}`);
-
-      // 获取原始请求头
-      const originalHeaders = params.request.headers;
-
-      // 伪装请求头
-      const spoofedHeaders = originalHeaders
-        .filter((h: any) => h.name.toLowerCase() !== "origin")
-        .filter((h: any) => h.name.toLowerCase() !== "referer")
-        .filter((h: any) => h.name.toLowerCase() !== "x-requested-with")
-        .concat([
-          { name: "Origin", value: new URL(url).origin },
-          { name: "Referer", value: new URL(url).origin + "/" },
-          { name: "X-Requested-With", value: "XMLHttpRequest" }
-        ]);
-
-      console.log("[Debugger] Spoofed Headers:", spoofedHeaders);
-
-      chrome.debugger.sendCommand(this.debuggee, "Fetch.continueRequest", {
-        requestId: requestId,
-        headers: spoofedHeaders
-      });
-    };
-    chrome.debugger.onEvent.addListener(onEventHandler);
-  }
-
-  public async http_spoof(url: string): Promise<void> {
-    await this.spoofNetworkRequests(url);
-  }
-
   public async http_fetch(
     input: SerializableRequest | string,
     requestInit?: RequestInit
   ): Promise<SerializableResponse> {
+    const url = typeof input === "string" ? input : input.url;
+    await this.enable_disable_cors();
+    await this.spoof_request_start(url);
     const input_ser = JSON.stringify(input);
     const js = `
       (async () => {
@@ -224,7 +186,9 @@ export class Debugger {
         return serializableResponse;
       })();
     `;
-    return await this.danger_remote_execute<SerializableResponse>(js);
+    const ret = await this.danger_remote_execute<SerializableResponse>(js);
+    await this.spoof_request_stop(url);
+    return ret;
   }
 
   public async http_get(url: string, params = {}, headers = {}): Promise<SerializableResponse> {
@@ -233,6 +197,8 @@ export class Debugger {
       const final_params = new URLSearchParams(params).toString();
       final_url += "?" + final_params;
     }
+    await this.enable_disable_cors();
+    await this.spoof_request_start(url);
 
     const ret: SerializableResponse = await this.danger_remote_execute(`
       (async () => {
@@ -265,10 +231,13 @@ export class Debugger {
         return serializableResponse;
       })();
     `);
+    await this.spoof_request_stop(url);
     return ret;
   }
 
   public async http_post_json(url: string, data = {}, headers = {}): Promise<SerializableResponse> {
+    await this.enable_disable_cors();
+    await this.spoof_request_start(url);
     const ret: SerializableResponse = await this.danger_remote_execute(`
       (async () => {
         const fetchOptions = {
@@ -300,6 +269,126 @@ export class Debugger {
         return serializableResponse;
       })();
     `);
+    await this.spoof_request_stop(url);
     return ret;
+  }
+
+  private onEventListener = async (source: chrome._debugger.DebuggerSession, method: string, params: any) => {
+    if (method !== "Fetch.requestPaused" || source.tabId !== this.tab.id) {
+      return;
+    }
+
+    const { requestId, request } = params;
+
+    if (params.responseStatusCode) {
+      if (this.init.cors) {
+        // NOTE(kuriko): I know this looks ugly, but it just works.
+        return await this.handleResponse(source, method, params);
+      }
+    } else {
+      // NOTE(kuriko): Currently fetch is executed from the tab, so no need to spoof.
+      // const spoofHandler = this.spoofFuncs.get(request.url);
+      // if (spoofHandler) {
+      //   await spoofHandler(source, method, params);
+      //   return;
+      // }
+    }
+    try {
+      if (params.responseStatusCode) {
+        // 响应阶段的默认放行
+        await chrome.debugger.sendCommand(this.debuggee, "Fetch.continueResponse", { requestId });
+      } else {
+        // 请求阶段的默认放行
+        await chrome.debugger.sendCommand(this.debuggee, "Fetch.continueRequest", { requestId });
+      }
+    } catch (e) {
+      if (!String(e).includes("Invalid state")) {
+        console.error(`Default continue failed for ${requestId}:`, e);
+      }
+    }
+  };
+
+  private handleSPOOFRequest =
+    (url: string) => async (source: chrome.debugger.Debuggee, method: string, params: any) => {
+      const requestId = params.requestId as string;
+      const requestUrl = params.request.url as string;
+
+      console.log(`[Debugger] Intercepted our target request: ${requestUrl}`);
+
+      const originalHeaders = params.request.headers;
+
+      // Origin should be right.
+      const targetOrigin = new URL(url).origin;
+      const targetReferer = targetOrigin + "/";
+
+      const spoofedHeaders = Object.entries(originalHeaders)
+        .map(([name, value]) => ({ name, value }))
+        .filter((h: any) => h.name.toLowerCase() !== "origin")
+        .filter((h: any) => h.name.toLowerCase() !== "referer")
+        .concat([
+          { name: "Origin", value: targetOrigin },
+          { name: "Referer", value: targetReferer }
+        ]);
+
+      console.log("[Debugger] Spoofed Headers:", spoofedHeaders);
+
+      try {
+        await chrome.debugger.sendCommand(this.debuggee, "Fetch.continueRequest", {
+          requestId: requestId,
+          headers: spoofedHeaders
+        });
+      } catch (e) {
+        console.error(`Failed to continue request for requestId ${requestId}:`, e);
+      }
+    };
+
+  private handleResponse = async (source: chrome._debugger.DebuggerSession, method: string, params: any) => {
+    const { requestId, request, responseHeaders, responseStatusCode } = params;
+
+    const originHeader = request.headers["Origin"] || request.headers["origin"];
+    const originToAllow = originHeader || "*";
+
+    const newHeaders = responseHeaders ? [...responseHeaders] : [];
+
+    const acaoHeader = newHeaders.find((h) => h.name.toLowerCase() === "access-control-allow-origin");
+    if (acaoHeader) {
+      acaoHeader.value = originToAllow;
+    } else {
+      newHeaders.push({ name: "Access-Control-Allow-Origin", value: originToAllow });
+    }
+
+    newHeaders.push({ name: "Access-Control-Allow-Methods", value: "GET, POST, PUT, DELETE, HEAD, OPTIONS" });
+    newHeaders.push({ name: "Access-Control-Allow-Headers", value: "*" });
+    newHeaders.push({ name: "Access-Control-Allow-Credentials", value: "true" });
+
+    try {
+      await chrome.debugger.sendCommand(source, "Fetch.continueResponse", {
+        requestId: requestId,
+        responseCode: responseStatusCode,
+        responseHeaders: newHeaders
+      });
+    } catch (e) {
+      console.error(`Failed to continue response for requestId ${requestId}:`, e);
+    }
+  };
+
+  public async enable_disable_cors() {
+    if (this.init.cors) return;
+    await this.enableFetch();
+    this.init.cors = true;
+  }
+
+  private spoofFuncs = new Map();
+  private async spoof_request_start<T>(url: string) {
+    await this.enableFetch();
+    const func = this.handleSPOOFRequest(url);
+    if (this.spoofFuncs.has(url)) {
+      return;
+    }
+    this.spoofFuncs.set(url, func);
+  }
+
+  private spoof_request_stop(url: string) {
+    this.spoofFuncs.delete(url);
   }
 }

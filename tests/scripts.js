@@ -67,3 +67,24 @@ window.postMessage(
   },
   "*"
 );
+
+chrome.runtime.sendMessage(
+  "heaclbjdecgjhkbeigpkgoboipadjalj",
+  {
+    type: "AUTO_NOVEL_CRAWLER_PING"
+  },
+  (e) => console.log(e)
+);
+
+chrome.runtime.sendMessage(
+  "heaclbjdecgjhkbeigpkgoboipadjalj",
+  {
+    type: "AUTO_NOVEL_CRAWLER_REQUEST",
+    payload: {
+      base_url: "https://www.pixiv.net/novel/show.php?id=20701122",
+      cmd: "tab.dom.querySelectorAll",
+      data: { selector: "main" }
+    }
+  },
+  (e) => console.log(e)
+);

@@ -13,25 +13,43 @@
 ### 命令报文
 
 ```typescript
-enum MSG_TYPE {
+export enum MSG_TYPE {
   CRAWLER_REQ = "AUTO_NOVEL_CRAWLER_REQUEST",  // 发起爬虫请求
   RESPONSE = "AUTO_NOVEL_CRAWLER_RESPONSE",    // 爬虫请求的响应
   PING = "AUTO_NOVEL_CRAWLER_PING"             // 测试用命令
 }
 
-// 以 爬虫请求 为例
-type MSG_CRAWLER = {
-  type: MSG_TYPE.CRAWLER_REQ;                  // 命令类型
-  payload: AutoNovelCrawlerCommand;            // 爬虫请求参数
+interface BaseMessage {
+  id: string;             // 消息 ID，在多命令发射时用于匹配响应
+  type: MSG_TYPE;
+}
+
+export interface MSG_CRAWLER extends BaseMessage {
+  type: MSG_TYPE.CRAWLER_REQ;
+  payload: AutoNovelCrawlerCommand;
+}
+
+export interface MSG_RESPONSE extends BaseMessage {
+  type: MSG_TYPE.RESPONSE;
+  payload: ResponsePayload;
+}
+
+export type ResponsePayload = {
+  success: boolean;
+  result?: any;
+  error?: string;
 };
 
-type AutoNovelCrawlerCommand = {
+export type Message = MSG_PING | MSG_CRAWLER | MSG_RESPONSE;
+
+export type AutoNovelCrawlerCommand = {
   base_url: string;                    // 基础 URL，用于创建后台页面，可以认为是 Host
+  single?: boolean;                    // 是否为单次请求，true 则请求完成后关闭 tab
   cmd: keyof ClientMethods;            // 爬虫命令
   data?: any;                          // 爬虫参数
 };
 
-// 目前支持的爬虫命令：
+// 目前支持的爬虫命令：请以最新的 msg.ts 为准
 // 其中 `tab_*` 代表使用 debugger api 在目标 tab 上操作。
 export type ClientMethods = {
   "http.raw"(params: HttpRawParams): Promise<HttpRawResult>;
@@ -41,6 +59,7 @@ export type ClientMethods = {
   "tab.switchTo"(params: TabSwitchToParams): Promise<TabSwitchToResult>;
   "tab.http.get"(params: TabHttpGetParams): Promise<TabHttpGetResult>;
   "tab.http.postJson"(params: TabHttpPostJsonParams): Promise<TabHttpPostJsonResult>;
+  "tab.dom.querySelectorAll"(params: DomQuerySelectorAllParams): Promise<DomQuerySelectorAllResult>;
 
   "cookies.get"(params: CookiesGetParams): Promise<CookiesGetResult>;
   // 在 base_url 页面执行 querySelectorAll，支持 SPA 页面。
@@ -50,27 +69,53 @@ export type ClientMethods = {
 };
 ```
 
-
-
 ### 调用方法
+
+> 请注意将 extension id 替换为实际的 id。
+
+```javascript
+chrome.runtime.sendMessage(
+  "heaclbjdecgjhkbeigpkgoboipadjalj",
+  {
+    type: "AUTO_NOVEL_CRAWLER_PING"
+  },
+  (e) => console.log(e)
+);
+
+chrome.runtime.sendMessage(
+  "heaclbjdecgjhkbeigpkgoboipadjalj",
+  {
+    type: "AUTO_NOVEL_CRAWLER_REQUEST",
+    payload: {
+      base_url: "https://www.pixiv.net/novel/show.php?id=20701122",
+      cmd: "tab.dom.querySelectorAll",
+      data: { selector: "main" }
+    }
+  },
+  (e) => console.log(e)
+);
+```
+
+
+### 调用方法（调试用，旧方法，已废弃）
 
 ```typescript
 // 命令：对 机翻站（SPA 站）进行 dom 查询
 window.postMessage({
   type: "AUTO_NOVEL_CRAWLER_REQUEST",
-  payload: { 
-      base_url: "https://n.novelia.cc/", 
-      cmd: "dom.querySelectorAll", 
-      data: { selector: "body" } 
+  payload: {
+      base_url: "https://n.novelia.cc/",
+      cmd: "dom.querySelectorAll",
+      data: { selector: "body" }
   }},"*");
 
 // 命令：对 机翻站（SPA 站）进行 dom 查询
 window.postMessage({
   type: "AUTO_NOVEL_CRAWLER_REQUEST",
-  payload: { 
-      base_url: "https://n.novelia.cc/", 
-      cmd: "dom.querySelectorAll", 
-      data: { selector: "body" } 
+  payload: {
+      base_url: "https://n.novelia.cc/",
+      cmd: "dom.querySelectorAll",
+      data: { selector: "body" }
   }},"*");
 
 // 命令：直接执行 http get 操作，对于 SPA 站只能获取裸 html
@@ -86,7 +131,7 @@ window.postMessage({
 // 监听结果
 window.addEventListener("message", (event) => {
   if (event.source !== window && event.type != "AUTO_NOVEL_CRAWLER_RESPONSE") return;
-  console.log("received message:", event.data);
+  console.log("[AutoNovel] received message:", event.data);
 }, false);
 
 ```
@@ -125,10 +170,10 @@ window.addEventListener("message", (event) => {
 - `cookies`：获取目标网站的 `cookies`。
 
 - `debugger`：用于在目标网站域内执行操作，绕过浏览器权限限制。
-  
+
   - 相关 API 调用见 `utils/api.ts` 中 `tab_*` 系列函数。
-  
-    
+
+
 
 **该插件会访问如下网站内容**：
 
@@ -143,3 +188,8 @@ window.addEventListener("message", (event) => {
 由于插件使用了 `debugger` 权限，可能会被浏览器标记为不安全插件。
 
 如果您发现了本插件存在任何**安全问题**或者**远程执行漏洞**，请及时联系 AutoNovel 团队。
+
+
+## TODO
+
+- [ ] 考虑迁移到 `https://www.npmjs.com/package/chrome-debugging-client` 库

@@ -7,7 +7,7 @@ import retry from "async-retry";
 type Tab = chrome.tabs.Tab;
 
 export class Api {
-  private _url: string;
+  private _url: string | null;
 
   get url() {
     return this._url;
@@ -21,21 +21,42 @@ export class Api {
 
   private init = {
     tab: false,
-    debugger: false
+    debugger: false,
+    local: false
   };
 
   private tab!: Tab;
   private debugger!: Debugger;
 
-  constructor(url: string) {
+  private constructor(url: string, tab?: Tab) {
     this._url = url;
+    if (tab) {
+      this.tab = tab;
+      this.init.tab = true;
+      this.init.local = true;
+    }
+  }
+
+  public static fromTab(tab: Tab) {
+    return new Api(tab.url!, tab);
+  }
+
+  public static fromURL(url: string) {
+    return new Api(url);
   }
 
   get tab_id() {
     return this.tab?.id;
   }
 
+  ensureURL(): asserts this is this & { url: string } {
+    if (!this.url) {
+      throw new Error("URL is not set.");
+    }
+  }
+
   async ensureTab() {
+    this.ensureURL();
     if (this.init.tab) {
       if (this.url != this.tab.url) {
         await this.tab_swith_to(this.url);
@@ -48,14 +69,13 @@ export class Api {
 
   async ensureDebugger() {
     if (this.init.debugger) {
-      if (this.tab && this.debugger.tab.id !== this.tab.id) {
+      if (this.tab && this.debugger.tab !== this.tab) {
         await this.debugger.disconnect();
         await this.initDebugger();
       }
       return;
     }
     await this.initDebugger();
-    this.init.debugger = true;
   }
 
   // @requireInit
@@ -80,7 +100,7 @@ export class Api {
     }
     console.debug("[AutoNovel] crawler api closing");
     if (this.init.debugger) await this.debugger.disconnect();
-    if (this.init.tab) await chrome.tabs.remove(this.tab.id!);
+    if (this.init.tab && !this.init.local) await chrome.tabs.remove(this.tab.id!);
     this.init.tab = false;
     this.init.debugger = false;
   }
@@ -92,10 +112,12 @@ export class Api {
       return;
     }
 
+    await this.ensureURL();
+
     const createTabFn = () =>
       chrome.tabs
         .create({
-          url: this.url.toString(),
+          url: this.url!.toString(),
           active: false
         })
         .then(async (tab) => {
@@ -138,6 +160,9 @@ export class Api {
     if (!this.init.tab) {
       await this.initTab();
     }
+    if (this.init.local) {
+      throw new Error("Cannot switch tab in local mode.");
+    }
     await chrome.tabs.update(this.tab!.id, { url }).then((tab) =>
       WaitOrTimeout(this.wait_any_tab(tab ?? this.tab), MAX_PAGE_LOAD_WAIT_TIME)
         .then(() => (this._url = url))
@@ -173,10 +198,10 @@ export class Api {
   }
 
   /*
-            在当前 tab 的身份下执行 http_get
-            CORS: 遵循浏览器
-            cookies: 浏览器自动附加
-        */
+    在当前 tab 的身份下执行 http_get
+    CORS: 遵循浏览器
+    cookies: 浏览器自动附加
+  */
   // @requireInit
   public async tab_http_get(url: string, params = {}, headers: [string, string][] = []): Promise<SerializableResponse> {
     await this.ensureTab();
@@ -185,10 +210,10 @@ export class Api {
   }
 
   /*
-            在当前 tab 的身份下执行 http_post_json
-            CORS: 遵循浏览器
-            cookies: 浏览器自动附加
-        */
+    在当前 tab 的身份下执行 http_post_json
+    CORS: 遵循浏览器
+    cookies: 浏览器自动附加
+  */
   // @requireInit
   public async tab_http_post_json(
     url: string,
@@ -254,5 +279,15 @@ export class Api {
     } else {
       return [];
     }
+  }
+
+  public async enable_local_bypass(url: string): Promise<void> {
+    await this.ensureDebugger();
+    await this.debugger.enable_disable_cors();
+    await this.debugger.spoof_request_start(url);
+  }
+
+  public async disable_local_bypass(url: string): Promise<void> {
+    await this.debugger.spoof_request_stop(url);
   }
 }

@@ -10,29 +10,25 @@ chrome.runtime.onInstalled.addListener(() => {
 
 const crawlerInstances: Map<string, WebCrawler> = new Map();
 
-function getOrCreateCrawler(payload: AutoNovelCrawlerCommand): [string, WebCrawler] {
+function getOrCreateCrawler(payload: AutoNovelCrawlerCommand, env: EnvType): WebCrawler {
   // Get or Create a job id.
-  const job_id = payload.job_id ?? crypto.randomUUID();
+  const job_id = env.job_id;
 
   const crawler =
     crawlerInstances.get(job_id) ??
     (() => {
-      if (!payload.base_url) {
-        throw new Error("Cannot create a new crawler without a base_url.");
+      let newCrawler;
+      if (payload.base_url == "local") {
+        newCrawler = WebCrawler.fromTab(env, env.tab);
+      } else {
+        newCrawler = WebCrawler.fromURL(env, payload.base_url);
       }
-      const newCrawler = new WebCrawler(payload.base_url);
       crawlerInstances.set(job_id, newCrawler);
       console.log(`[AutoNovel] New crawler instance created for id ${job_id}.`);
       return newCrawler;
     })();
 
-  if (crawler.url != payload.base_url) {
-    // Change the base URL if it's different.
-    // This is for the case when not using single mode.
-    crawler.url = payload.base_url;
-  }
-
-  return [job_id, crawler];
+  return crawler;
 }
 
 chrome.tabs.onRemoved.addListener(async (tabId) => {
@@ -48,10 +44,17 @@ chrome.tabs.onRemoved.addListener(async (tabId) => {
   }
   const quitPromises = toRemove.map(([_, crawler]) => {
     if (!crawler) return Promise.resolve();
-    return crawler.quit();
+    return crawler.job_quit();
   });
   await Promise.all(quitPromises);
 });
+
+type Tab = chrome.tabs.Tab;
+export type EnvType = {
+  sender: chrome.runtime.MessageSender;
+  tab: Tab;
+  job_id: string;
+};
 
 const messageFn = (message: Message, sender: chrome.runtime.MessageSender, sendResponse: (response: any) => void) => {
   console.debug("[AutoNovel] Received message: ", message, sender);
@@ -65,13 +68,21 @@ const messageFn = (message: Message, sender: chrome.runtime.MessageSender, sendR
       const msg = message as MSG_CRAWLER;
       const payload = msg.payload ?? {};
       if (!payload.base_url) payload.base_url = payload.params?.url;
+
       payload.single = payload.single ?? true;
       msg.id = msg.id ?? crypto.randomUUID();
 
-      const [job_id, crawler] = getOrCreateCrawler(payload);
+      const job_id = payload.job_id ?? crypto.randomUUID();
+      const env: EnvType = {
+        job_id,
+        tab: sender.tab!,
+        sender
+      };
+
+      const crawler = getOrCreateCrawler(payload, env);
 
       crawler
-        .applyCommand(payload.cmd, payload.params)
+        .applyCommand(payload.cmd, payload.params, env)
         .then((result) => {
           console.debug("[AutoNovel] Crawler Result: ", result);
 
@@ -93,7 +104,7 @@ const messageFn = (message: Message, sender: chrome.runtime.MessageSender, sendR
         .finally(async () => {
           if (!payload.single) return;
           crawlerInstances.delete(job_id);
-          await crawler.quit();
+          await crawler.job_quit();
         });
       break;
     }
@@ -109,7 +120,7 @@ chrome.runtime.onMessageExternal.addListener(messageFn);
 chrome.action.onClicked.addListener(async () => {
   if (isDebug) {
     // const c = new WebCrawler("https://www.pixiv.net/novel/show.php?id=20701122");
-    const api = new Api("https://example.com");
+    const api = Api.fromURL("https://example.com");
     {
       const resp = await api.http_get("https://echo.free.beeceptor.com", { a: "1", b: "2" }, [["X-Test", "123"]]);
       console.log(resp);

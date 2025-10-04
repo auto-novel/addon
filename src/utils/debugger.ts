@@ -121,7 +121,6 @@ export class Debugger {
   ): Promise<SerializableResponse> {
     const url = typeof input === "string" ? input : input.url;
     await this.enable_disable_cors();
-    await this.spoof_request_start(url);
     const input_ser = JSON.stringify(input);
     const js = `
       (async () => {
@@ -187,7 +186,6 @@ export class Debugger {
       })();
     `;
     const ret = await this.danger_remote_execute<SerializableResponse>(js);
-    await this.spoof_request_stop(url);
     return ret;
   }
 
@@ -198,7 +196,6 @@ export class Debugger {
       final_url += "?" + final_params;
     }
     await this.enable_disable_cors();
-    await this.spoof_request_start(url);
 
     const ret: SerializableResponse = await this.danger_remote_execute(`
       (async () => {
@@ -231,13 +228,11 @@ export class Debugger {
         return serializableResponse;
       })();
     `);
-    await this.spoof_request_stop(url);
     return ret;
   }
 
   public async http_post_json(url: string, data = {}, headers = {}): Promise<SerializableResponse> {
     await this.enable_disable_cors();
-    await this.spoof_request_start(url);
     const ret: SerializableResponse = await this.danger_remote_execute(`
       (async () => {
         const fetchOptions = {
@@ -269,7 +264,6 @@ export class Debugger {
         return serializableResponse;
       })();
     `);
-    await this.spoof_request_stop(url);
     return ret;
   }
 
@@ -286,12 +280,11 @@ export class Debugger {
         return await this.handleResponse(source, method, params);
       }
     } else {
-      // NOTE(kuriko): Currently fetch is executed from the tab, so no need to spoof.
-      // const spoofHandler = this.spoofFuncs.get(request.url);
-      // if (spoofHandler) {
-      //   await spoofHandler(source, method, params);
-      //   return;
-      // }
+      const spoofHandler = this.spoofFuncs.get(request.url);
+      if (spoofHandler) {
+        await spoofHandler(source, method, params);
+        return;
+      }
     }
     try {
       if (params.responseStatusCode) {
@@ -345,8 +338,8 @@ export class Debugger {
   private handleResponse = async (source: chrome._debugger.DebuggerSession, method: string, params: any) => {
     const { requestId, request, responseHeaders, responseStatusCode } = params;
 
-    const originHeader = request.headers["Origin"] || request.headers["origin"];
-    const originToAllow = originHeader || "*";
+    // const originHeader = request.headers["Origin"] || request.headers["origin"];
+    const originToAllow = new URL(this.tab.url!).origin || "*";
 
     const newHeaders = responseHeaders ? [...responseHeaders] : [];
 
@@ -379,7 +372,7 @@ export class Debugger {
   }
 
   private spoofFuncs = new Map();
-  private async spoof_request_start<T>(url: string) {
+  public async spoof_request_start(url: string) {
     await this.enableFetch();
     const func = this.handleSPOOFRequest(url);
     if (this.spoofFuncs.has(url)) {
@@ -388,7 +381,7 @@ export class Debugger {
     this.spoofFuncs.set(url, func);
   }
 
-  private spoof_request_stop(url: string) {
+  public spoof_request_stop(url: string) {
     this.spoofFuncs.delete(url);
   }
 }

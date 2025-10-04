@@ -1,24 +1,45 @@
 import { Api } from "@utils/api";
 import { type ClientMethods, type JobNewResult, type JobQuitResult } from "./client/client.types";
 import { SerReq2RequestInfo } from "@utils/tools";
+import type { EnvType } from "@/worker";
+
+type Tab = chrome.tabs.Tab;
 
 export class WebCrawler {
-  url: string;
   api: Api;
+  env: EnvType;
 
-  constructor(url: string) {
-    this.url = url;
-    this.api = new Api(url);
+  private constructor(env: EnvType, url?: string, tab?: Tab) {
+    this.env = env;
+    if (url) {
+      this.api = Api.fromURL(url);
+    } else if (tab) {
+      this.api = Api.fromTab(tab);
+    } else {
+      throw new Error("Either url or tab must be provided.");
+    }
   }
 
-  public applyCommand = async (command: keyof ClientMethods, params: any) => {
+  public static fromTab(env: EnvType, tab: chrome.tabs.Tab) {
+    return new WebCrawler(env, undefined, tab);
+  }
+
+  public static fromURL(env: EnvType, url: string) {
+    return new WebCrawler(env, url, undefined);
+  }
+
+  public applyCommand = async (command: keyof ClientMethods, params: any, env: EnvType) => {
     const method = this.methods[command];
     if (!method) throw new Error(`Unknown command: ${command}`);
+    params = { ...params, ...env };
     return await method(params);
   };
 
   public methods: ClientMethods = {
     "base.ping": async () => await "pong",
+
+    "local.bypass.enable": async ({ url }) => await this.api.enable_local_bypass(url),
+    "local.bypass.disable": async ({ url }) => await this.api.disable_local_bypass(url),
 
     "http.fetch": async ({ input, requestInit }) => {
       const final_input = SerReq2RequestInfo(input);
@@ -39,16 +60,15 @@ export class WebCrawler {
 
     "dom.querySelectorAll": async ({ selector }) => await this.api.dom_query_selector_all(selector),
 
-    "job.new": async ({ url }) => await this.new(url),
-    "job.quit": async () => await this.quit()
+    "job.new": async () => await this.job_new(),
+    "job.quit": async () => await this.job_quit()
   };
 
-  public async new(url: string): Promise<JobNewResult> {
-    this.api.set_url(url);
-    return await { job_id: crypto.randomUUID() };
+  public async job_new(): Promise<JobNewResult> {
+    return await { job_id: this.env.job_id };
   }
 
-  public async quit(): Promise<JobQuitResult> {
+  public async job_quit(): Promise<JobQuitResult> {
     await this.api.close();
     return { status: "completed" };
   }

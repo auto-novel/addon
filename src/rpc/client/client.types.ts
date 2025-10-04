@@ -1,3 +1,5 @@
+type Tab = chrome.tabs.Tab;
+
 export type SerializableResponse = {
   body: string;
   status: number;
@@ -119,7 +121,7 @@ export type DomQuerySelectorAllParams = {
 };
 export type DomQuerySelectorAllResult = string[];
 
-export type JobNewParams = { url: string };
+export type JobNewParams = void;
 export type JobNewResult = { job_id: string };
 
 export type JobQuitParams = void;
@@ -135,6 +137,9 @@ export type JobQuitResult = {
 
 export type ClientMethods = {
   "base.ping"(): Promise<string>;
+
+  "local.bypass.enable"(params: { url: string }): Promise<void>;
+  "local.bypass.disable"(params: { url: string }): Promise<void>;
 
   "http.fetch"(params: HttpFetchParams): Promise<HttpFetchResult>;
   "http.get"(params: HttpGetParams): Promise<HttpGetResult>;

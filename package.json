@@ -21,6 +21,7 @@
     "@types/async-retry": "^1.4.9",
     "@types/chrome": "^0.1.12",
     "@types/firefox-webext-browser": "^120.0.4",
+    "@types/set-cookie-parser": "^2.4.10",
     "eslint": "^9.36.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react": "^7.37.5",
@@ -43,6 +44,6 @@
   },
   "dependencies": {
     "async-retry": "^1.3.3",
-    "json-rpc-2.0": "^1.7.1"
+    "set-cookie-parser": "^2.7.1"
   }
 }

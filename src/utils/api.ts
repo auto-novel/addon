@@ -2,7 +2,6 @@ import { Debugger } from "@utils/debugger";
 import { pack_response, WaitOrTimeout } from "@utils/tools";
 import { MAX_PAGE_LOAD_WAIT_TIME } from "@utils/consts";
 import type { SerializableRequest, SerializableResponse } from "@rpc/client/client.types";
-import retry from "async-retry";
 
 type Tab = chrome.tabs.Tab;
 
@@ -114,7 +113,7 @@ export class Api {
 
     await this.ensureURL();
     const tab = await chrome.tabs.create({ url: this.url!, active: false });
-    await this.wait_any_tab(tab);
+    await WaitOrTimeout(this.wait_any_tab(tab), MAX_PAGE_LOAD_WAIT_TIME);
     this.tab = tab;
     this.init.tab = true;
   }
@@ -241,11 +240,6 @@ export class Api {
     return pack_response(resp);
   }
 
-  public async cookies_get(url: string): Promise<chrome.cookies.Cookie[]> {
-    // get all cookies for the url
-    return await chrome.cookies.getAll({ url });
-  }
-
   // @requireInit
   public async dom_query_selector_all(selector: string): Promise<string[]> {
     await this.ensureTab();
@@ -268,11 +262,26 @@ export class Api {
 
   public async enable_local_bypass(url: string, origin?: string, referer?: string): Promise<void> {
     await this.ensureDebugger();
-    await this.debugger.enable_disable_cors();
+    await this.debugger.disable_cors_start();
     await this.debugger.spoof_request_start(url, origin, referer);
   }
 
   public async disable_local_bypass(url: string): Promise<void> {
+    await this.debugger.disable_cors_stop();
     await this.debugger.spoof_request_stop(url);
+  }
+
+  public async cookies_get(url: string): Promise<chrome.cookies.Cookie[]> {
+    return await chrome.cookies.getAll({ url });
+  }
+
+  public async cookies_get_str(url: string): Promise<string> {
+    const cookies = await chrome.cookies.getAll({ url });
+    return cookies.map((c) => `${c.name}=${c.value}`).join("; ");
+  }
+
+  public async cookies_set_from_response(response: SerializableResponse): Promise<void> {
+    await this.ensureDebugger();
+    await this.debugger.cookies_refresh(response);
   }
 }

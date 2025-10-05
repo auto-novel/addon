@@ -1,5 +1,6 @@
-import { serializeRequest, type SerializableRequest, type SerializableResponse } from "@rpc/client/client.types";
-import { pack_response, SerReq2RequestInfo, sleep } from "./tools";
+import { Response2SerResp, type SerializableRequest, type SerializableResponse } from "@rpc/client/client.types";
+import { ChromeRemoteExecution, SerReq2RequestInfo } from "./tools";
+import setCookie from "set-cookie-parser";
 
 type Tab = chrome.tabs.Tab;
 
@@ -115,12 +116,64 @@ export class Debugger {
     return ret;
   }
 
+  public async cookies_get(url: string): Promise<string> {
+    const cookies = await chrome.cookies.getAll({ url });
+    const cookieStr = cookies.map((c) => `${c.name}=${c.value}`).join("; ");
+    console.log(`[Debugger] Retrieved cookies for ${url}: ${cookieStr}`);
+    return cookieStr;
+  }
+
+  public async cookies_refresh(response: SerializableResponse) {
+    const setCookieStrings = Array.from(response.headers)
+      .filter((h) => h[0].toLowerCase() === "set-cookie")
+      .map((h) => h[1]);
+
+    if (setCookieStrings.length === 0) {
+      return;
+    }
+
+    const parsedCookies = setCookie.parse(setCookieStrings);
+    const setPromises = parsedCookies.map((cookie) => {
+      const setDetail: chrome.cookies.SetDetails = {
+        ...cookie,
+        url: response.url, // Provide the required context URL.
+        sameSite: cookie.sameSite as chrome.cookies.SameSiteStatus // Cast is needed here
+      };
+      // Convert 'expires' or 'maxAge' to 'expirationDate' (seconds since epoch)
+      if (cookie.expires) {
+        setDetail.expirationDate = cookie.expires.getTime() / 1000;
+      } else if (cookie.maxAge) {
+        // maxAge is seconds from now.
+        setDetail.expirationDate = Date.now() / 1000 + cookie.maxAge;
+      }
+      return chrome.cookies.set(setDetail);
+    });
+    try {
+      await Promise.all(setPromises);
+      console.log(`Successfully set ${setPromises.length} cookies for ${response.url}`);
+    } catch (error) {
+      console.error("Failed to set one or more cookies:", error);
+      // Promise.all fails fast. For more resilience, you could use Promise.allSettled
+      // to attempt to set all cookies even if some fail.
+    }
+  }
+
   public async http_fetch(
     input: SerializableRequest | string,
     requestInit?: RequestInit
   ): Promise<SerializableResponse> {
-    await this.enable_disable_cors();
-    console.log(this.tab);
+    await this.disable_cors_start();
+    // const url = typeof input === "string" ? input : input.url;
+    // const cookieStr = await this.cookies_get(url);
+
+    // const headers = new Headers(requestInit?.headers || {});
+    // headers.set("Cookie", cookieStr);
+
+    // requestInit = {
+    //   ...requestInit,
+    //   headers: Object.fromEntries(headers.entries()),
+    // };
+
     const input_ser = JSON.stringify(input);
     const js = `
       (async () => {
@@ -185,85 +238,35 @@ export class Debugger {
         return serializableResponse;
       })();
     `;
-    const ret = await this.danger_remote_execute<SerializableResponse>(js);
-    return ret;
+    const resp = await this.danger_remote_execute<SerializableResponse>(js);
+    // this.cookies_refresh(resp).catch((e) => {
+    //   console.error("Failed to refresh cookies:", e);
+    // });
+    await this.disable_cors_stop();
+    return resp;
   }
 
-  public async http_get(url: string, params = {}, headers = {}): Promise<SerializableResponse> {
-    let final_url = new URL(url).toString();
-    if (params) {
-      const final_params = new URLSearchParams(params).toString();
-      final_url += "?" + final_params;
+  public async http_get(url: string, params: Record<string, string> = {}, headers = {}): Promise<SerializableResponse> {
+    const final_url = new URL(url);
+    for (const [k, v] of Object.entries(params)) {
+      final_url.searchParams.append(k, v);
     }
-    await this.enable_disable_cors();
 
-    const ret: SerializableResponse = await this.danger_remote_execute(`
-      (async () => {
-        const fetchOptions = {
-          method: 'GET',
-          headers: {
-            ...${JSON.stringify(headers)}
-          },
-        };
-
-        const response = await fetch('${final_url}', fetchOptions);
-
-        const headers = {};
-        for (const [key, value] of response.headers.entries()) {
-          headers[key] = value;
-        }
-
-        const bodyText = await response.text();
-
-        const serializableResponse = {
-          body: bodyText,
-          status: response.status,
-          statusText: response.statusText,
-          ok: response.ok,
-          headers: headers,
-          redirected: response.redirected,
-          url: response.url,
-          type: response.type,
-        };
-        return serializableResponse;
-      })();
-    `);
+    const ret = await this.http_fetch(final_url.toString(), { method: "GET", cache: "no-cache", headers });
     return ret;
   }
 
   public async http_post_json(url: string, data = {}, headers = {}): Promise<SerializableResponse> {
-    await this.enable_disable_cors();
-    const ret: SerializableResponse = await this.danger_remote_execute(`
-      (async () => {
-        const fetchOptions = {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            ...${JSON.stringify(headers)}
-          },
-          body: JSON.stringify(${JSON.stringify(data)})
-        };
-        const response = await fetch('${url}', fetchOptions);
-
-        const headers = {};
-        for (const [key, value] of response.headers.entries()) {
-          headers[key] = value;
-        }
-        const bodyText = await response.text();
-        const serializableResponse = {
-          body: bodyText,
-          status: response.status,
-          statusText: response.statusText,
-          ok: response.ok,
-          headers: headers,
-          redirected: response.redirected,
-          url: response.url,
-          type: response.type,
-        };
-        return serializableResponse;
-      })();
-    `);
+    const ret = await this.http_fetch(url, {
+      method: "POST",
+      cache: "no-cache",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        ...headers
+      },
+      body: JSON.stringify(data)
+    });
     return ret;
   }
 
@@ -366,10 +369,14 @@ export class Debugger {
     }
   }
 
-  public async enable_disable_cors() {
+  public async disable_cors_start() {
     if (this.init.cors) return;
     await this.enableFetch();
     this.init.cors = true;
+  }
+
+  public disable_cors_stop() {
+    this.init.cors = false;
   }
 
   private spoofFuncs = new Map();

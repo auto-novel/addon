@@ -59,3 +59,25 @@ export function SerReq2RequestInfo(input: SerializableRequest | string) {
   }
   return final_input;
 }
+
+export async function ChromeRemoteExecution<T, A extends any[]>({
+  target,
+  func,
+  args
+}: {
+  target: chrome.scripting.InjectionTarget;
+  func: (...args: A) => T | Promise<T>;
+  args: A;
+}): Promise<T> {
+  const results = await chrome.scripting.executeScript({
+    target,
+    func,
+    args
+  });
+
+  if (results && results[0] && results[0].result) {
+    return results[0].result as T;
+  } else {
+    throw new Error("Failed to execute script in tab.");
+  }
+}

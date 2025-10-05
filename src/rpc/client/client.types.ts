@@ -11,6 +11,23 @@ export type SerializableResponse = {
   type: ResponseType;
 };
 
+export async function Response2SerResp(response: Response): Promise<SerializableResponse> {
+  const headers: [string, string][] = Array.from(response.headers.entries());
+  const bodyText = await response.text();
+
+  const serializableResponse = {
+    body: bodyText,
+    status: response.status,
+    statusText: response.statusText,
+    ok: response.ok,
+    headers: headers,
+    redirected: response.redirected,
+    url: response.url,
+    type: response.type
+  };
+  return serializableResponse;
+}
+
 export interface SerializableRequest {
   url: string;
   // RequestInit 的所有可序列化属性
@@ -145,6 +162,7 @@ export type BypassEnableResult = void;
 export type ClientMethods = {
   "base.ping"(): Promise<string>;
 
+  "local.cookies.setFromResponse"(params: { response: SerializableResponse }): Promise<void>;
   "local.bypass.enable"(params: BypassEnableParams): Promise<BypassEnableResult>;
   "local.bypass.disable"(params: { url: string }): Promise<void>;
 
@@ -159,6 +177,7 @@ export type ClientMethods = {
   "tab.dom.querySelectorAll"(params: DomQuerySelectorAllParams): Promise<DomQuerySelectorAllResult>;
 
   "cookies.get"(params: CookiesGetParams): Promise<CookiesGetResult>;
+  "cookies.getStr"(params: { url: string }): Promise<string>;
 
   "dom.querySelectorAll"(params: DomQuerySelectorAllParams): Promise<DomQuerySelectorAllResult>;
 

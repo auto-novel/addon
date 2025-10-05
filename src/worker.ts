@@ -97,7 +97,7 @@ const messageFn = (message: Message, sender: chrome.runtime.MessageSender, sendR
           const resp: MSG_RESPONSE = {
             type: MSG_TYPE.RESPONSE,
             id: msg.id,
-            payload: { success: true, error: error.message }
+            payload: { success: false, error: error.message }
           };
           return sendResponse(resp);
         })

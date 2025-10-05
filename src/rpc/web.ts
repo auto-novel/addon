@@ -38,6 +38,7 @@ export class WebCrawler {
   public methods: ClientMethods = {
     "base.ping": async () => await "pong",
 
+    "local.cookies.setFromResponse": async ({ response }) => await this.api.cookies_set_from_response(response),
     "local.bypass.enable": async ({ origin, referer, url }) => await this.api.enable_local_bypass(url, origin, referer),
     "local.bypass.disable": async ({ url }) => await this.api.disable_local_bypass(url),
 
@@ -57,6 +58,7 @@ export class WebCrawler {
     "tab.dom.querySelectorAll": async ({ selector }) => await this.api.tab_dom_querySelectorAll(selector),
 
     "cookies.get": async ({ url }) => await this.api.cookies_get(url),
+    "cookies.getStr": async ({ url }) => await this.api.cookies_get_str(url),
 
     "dom.querySelectorAll": async ({ selector }) => await this.api.dom_query_selector_all(selector),
 

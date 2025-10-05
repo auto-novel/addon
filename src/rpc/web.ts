@@ -37,6 +37,12 @@ export class WebCrawler {
 
   public methods: ClientMethods = {
     "base.ping": async () => await "pong",
+    "base.info": async () => {
+      return await {
+        version: chrome.runtime.getManifest().version,
+        homepage_url: chrome.runtime.getManifest().homepage_url ?? "https://github.com/auto-novel/addon"
+      };
+    },
 
     "local.cookies.setFromResponse": async ({ response }) => await this.api.cookies_set_from_response(response),
     "local.bypass.enable": async ({ origin, referer, url }) => await this.api.enable_local_bypass(url, origin, referer),

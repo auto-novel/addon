@@ -178,12 +178,10 @@ export class Debugger {
     input: SerializableRequest | string,
     requestInit?: RequestInit
   ): Promise<SerializableResponse> {
-    await this.disable_cors_start("");
-
     const url = typeof input === "string" ? input : input.url;
     const origin = new URL(this.tab.url || this.tab.pendingUrl!).origin;
     const referer = origin + "/";
-    const id = await this.bypass_enable(url, origin, referer);
+    const id = await this.bypass_enable(url, origin, referer, true);
     // const cookieStr = await this.cookies_get(url);
 
     // const headers = new Headers(requestInit?.headers || {});
@@ -194,18 +192,72 @@ export class Debugger {
     //   headers: Object.fromEntries(headers.entries()),
     // };
 
-    const resp = await ChromeRemoteExecution({
+    const resp_ser = await ChromeRemoteExecution({
       target: { tabId: this.tab.id! },
       func: async (input: string, requestInit?: RequestInit) => {
+        function deserializeRequest(req: SerializableRequest): RequestInfo {
+          if (typeof req === "string") {
+            return req;
+          }
+
+          console.log("deserializeRequest: ", req);
+          const init: RequestInit = {
+            method: req.method,
+            headers: new Headers(req.headers),
+            body: req.body,
+            mode: req.mode,
+            credentials: req.credentials,
+            cache: req.cache,
+            redirect: req.redirect,
+            referrer: req.referrer,
+            integrity: req.integrity
+          };
+
+          return new Request(req.url, init);
+        }
+
+        function SerReq2RequestInfo(input: SerializableRequest | string) {
+          let final_input: RequestInfo;
+          switch (typeof input) {
+            case "string": {
+              final_input = input;
+              break;
+            }
+            case "object": {
+              final_input = deserializeRequest(input as SerializableRequest);
+              break;
+            }
+            default:
+              throw new Error("Invalid input type for http.raw");
+          }
+          return final_input;
+        }
+
+        async function Response2SerResp(response: Response): Promise<SerializableResponse> {
+          const headers: [string, string][] = Array.from(response.headers.entries());
+          const bodyText = await response.text();
+
+          const serializableResponse = {
+            body: bodyText,
+            status: response.status,
+            statusText: response.statusText,
+            ok: response.ok,
+            headers: headers,
+            redirected: response.redirected,
+            url: response.url,
+            type: response.type
+          };
+          return serializableResponse;
+        }
         const _input = SerReq2RequestInfo(JSON.parse(input));
         const ret = await fetch(_input, requestInit);
-        return ret;
+        const resp_ser = await Response2SerResp(ret);
+        console.log(resp_ser);
+        return resp_ser;
       },
       args: [JSON.stringify(input), requestInit]
     });
 
-    await this.bypass_disable(id, url);
-    const resp_ser = await Response2SerResp(resp);
     return resp_ser;
   }
 
@@ -332,16 +384,20 @@ export class Debugger {
     }
   }
 
-  public async bypass_enable(url: string, origin?: string, referer?: string) {
+  public async bypass_enable(url: string, origin?: string, referer?: string, only_spoof = false) {
     const id = crypto.randomUUID();
     await this.spoof_request_start(id, url, origin, referer);
-    await this.disable_cors_start(id);
+    if (!only_spoof) {
+      await this.disable_cors_start(id);
+    }
     return id;
   }
 
-  public async bypass_disable(id: string, url: string) {
-    await this.disable_cors_stop(id);
+  public async bypass_disable(id: string, url: string, only_spoof = false) {
     await this.spoof_request_stop(id, url);
+    if (!only_spoof) {
+      await this.disable_cors_stop(id);
+    }
   }
 
   private async disable_cors_start(id: string) {
@@ -349,7 +405,7 @@ export class Debugger {
     if (false && browserInfo.isChrome) {
       await this.enableFetch();
     } else {
-      await installCORSRules(id, this.tab.url ?? this.tab.pendingUrl ?? "");
+      await installCORSRules(id, this.tab.url || this.tab.pendingUrl!);
     }
     this.init.cors = true;
   }

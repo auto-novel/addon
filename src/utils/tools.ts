@@ -78,6 +78,7 @@ export async function ChromeRemoteExecution<T, A extends any[]>({
   if (results && results[0] && results[0].result) {
     return results[0].result as T;
   } else {
+    console.error("ChromeRemoteExecution failed:", results);
     throw new Error("Failed to execute script in tab.");
   }
 }
@@ -89,5 +90,5 @@ export function hashStringToInt(str: string): number {
     hash = (hash << 5) - hash + char;
     hash |= 0;
   }
-  return hash;
+  return hash < 0 ? -hash : hash;
 }

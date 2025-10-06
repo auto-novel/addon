@@ -19,7 +19,7 @@ const spoof_rules_builder = (base: number, url: string, origin: string, referer:
       },
       condition: {
         urlFilter: `|${filter}/*`,
-        resourceTypes: ["xmlhttprequest", "csp_report"]
+        resourceTypes: ["xmlhttprequest", "csp_report", "main_frame"]
       }
     }
   ];

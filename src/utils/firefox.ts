@@ -1,4 +1,4 @@
-import { getVar, storeVar } from "@utils/storage";
+import { sessionDel, sessionGet, sessionStore } from "@utils/storage";
 import { hashStringToInt } from "./tools";
 
 // chrome.declarativeNetRequest.HeaderOperation
@@ -83,7 +83,7 @@ const SPOOF_KEY = "spoof_rules";
 export async function installSpoofRules(id: string, url: string, origin: string, referer: string) {
   const base = hashStringToInt(`${id}_${url}_${origin}_${referer}`);
   const newRules = spoof_rules_builder(base, url, origin, referer);
-  await storeVar(`${id}_${SPOOF_KEY}`, newRules);
+  await sessionStore(`${id}_${SPOOF_KEY}`, newRules);
   try {
     await chrome.declarativeNetRequest.updateDynamicRules({
       addRules: newRules,
@@ -96,12 +96,14 @@ export async function installSpoofRules(id: string, url: string, origin: string,
 }
 
 export async function uninstallSpoofRules(id: string) {
-  const rules: any[] = (await getVar(`${id}_spoof_rules`)) ?? [];
+  const key = `${id}_spoof_rules`;
+  const rules: any[] = (await sessionGet(key)) ?? [];
   const idsToRemove = rules.map((rule) => rule.id);
   try {
     await chrome.declarativeNetRequest.updateDynamicRules({
       removeRuleIds: idsToRemove
     });
+    await sessionDel(key);
   } catch (e) {
     console.error("Failed to uninstall spoof rules, ignoring: ", e);
   }
@@ -111,7 +113,7 @@ const CORS_KEY = "cors_rules";
 export async function installCORSRules(id: string, url: string) {
   const base = hashStringToInt(`${id}_${url}`);
   const newRules = cors_rules_builder(base, url);
-  await storeVar(`${id}_${CORS_KEY}`, newRules);
+  await sessionStore(`${id}_${CORS_KEY}`, newRules);
   try {
     await chrome.declarativeNetRequest.updateDynamicRules({
       addRules: newRules,
@@ -124,12 +126,14 @@ export async function installCORSRules(id: string, url: string) {
 }
 
 export async function uninstallCORSRules(id: string) {
-  const rules: any[] = (await getVar(`${id}_${CORS_KEY}`)) ?? [];
+  const key = `${id}_${CORS_KEY}`;
+  const rules: any[] = (await sessionGet(key)) ?? [];
   const idsToRemove = rules.map((rule) => rule.id);
   try {
     await browser.declarativeNetRequest.updateDynamicRules({
       removeRuleIds: idsToRemove
     });
+    await sessionDel(key);
   } catch (e) {
     console.error("Failed to uninstall cors rules, ignoring: ", e);
   }

@@ -181,7 +181,7 @@ export class Debugger {
     const url = typeof input === "string" ? input : input.url;
     const origin = new URL(this.tab.url || this.tab.pendingUrl!).origin;
     const referer = origin + "/";
-    const id = await this.bypass_enable(url, origin, referer, true);
+    const id = await this.bypass_enable(url, origin, referer);
     // const cookieStr = await this.cookies_get(url);
 
     // const headers = new Headers(requestInit?.headers || {});
@@ -258,6 +258,7 @@ export class Debugger {
       args: [JSON.stringify(input), requestInit]
     });
 
+    await this.bypass_disable(id, url);
     return resp_ser;
   }
 
@@ -388,7 +389,7 @@ export class Debugger {
     const id = crypto.randomUUID();
     await this.spoof_request_start(id, url, origin, referer);
     if (!only_spoof) {
-      await this.disable_cors_start(id);
+      await this.disable_cors_start(id, this.tab.url || this.tab.pendingUrl!);
     }
     return id;
   }
@@ -400,14 +401,14 @@ export class Debugger {
     }
   }
 
-  private async disable_cors_start(id: string) {
-    if (this.init.cors) return;
+  private async disable_cors_start(id: string, origin: string) {
     if (false && browserInfo.isChrome) {
+      if (this.init.cors) return;
       await this.enableFetch();
+      this.init.cors = true;
     } else {
-      await installCORSRules(id, this.tab.url || this.tab.pendingUrl!);
+      await installCORSRules(id, origin);
     }
-    this.init.cors = true;
   }
 
   private async disable_cors_stop(id: string) {

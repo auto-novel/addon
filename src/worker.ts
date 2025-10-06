@@ -117,10 +117,22 @@ chrome.tabs.onRemoved.addListener(async (tabId) => {
 
 chrome.runtime.onInstalled.addListener(() => {
   console.debug(`[AutoNovel] CSC debug mode: ${isDebug}`);
+  chrome.declarativeNetRequest.getDynamicRules((rules) => {
+    console.info("[AutoNovel] Cleaning up old rules: ", rules);
+    chrome.declarativeNetRequest.updateDynamicRules({
+      removeRuleIds: rules.map((r) => r.id)
+    });
+  });
 });
 
 chrome.runtime.onStartup.addListener(async () => {
   await detectBrowser();
+  await chrome.declarativeNetRequest.getDynamicRules((rules) => {
+    console.info("[AutoNovel] Cleaning up old rules: ", rules);
+    chrome.declarativeNetRequest.updateDynamicRules({
+      removeRuleIds: rules.map((r) => r.id)
+    });
+  });
 });
 
 chrome.action.onClicked.addListener(async () => {

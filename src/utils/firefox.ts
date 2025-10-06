@@ -81,6 +81,7 @@ const cors_rules_builder = (base: number, url: string): any[] => {
 
 const SPOOF_KEY = "spoof_rules";
 export async function installSpoofRules(id: string, url: string, origin: string, referer: string) {
+  console.log("Installing spoof rules for", { id, url, origin, referer });
   const base = hashStringToInt(`${id}_${url}_${origin}_${referer}`);
   const newRules = spoof_rules_builder(base, url, origin, referer);
   await sessionStore(`${id}_${SPOOF_KEY}`, newRules);
@@ -111,6 +112,7 @@ export async function uninstallSpoofRules(id: string) {
 
 const CORS_KEY = "cors_rules";
 export async function installCORSRules(id: string, url: string) {
+  console.log("Installing CORS rules for", { id, url });
   const base = hashStringToInt(`${id}_${url}`);
   const newRules = cors_rules_builder(base, url);
   await sessionStore(`${id}_${CORS_KEY}`, newRules);

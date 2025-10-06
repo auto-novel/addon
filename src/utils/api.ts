@@ -260,15 +260,13 @@ export class Api {
     }
   }
 
-  public async enable_local_bypass(url: string, origin?: string, referer?: string): Promise<void> {
+  public async enable_local_bypass(url: string, origin?: string, referer?: string): Promise<string> {
     await this.ensureDebugger();
-    await this.debugger.disable_cors_start();
-    await this.debugger.spoof_request_start(url, origin, referer);
+    return await this.debugger.bypass_enable(url, origin, referer);
   }
 
-  public async disable_local_bypass(url: string): Promise<void> {
-    await this.debugger.disable_cors_stop();
-    await this.debugger.spoof_request_stop(url);
+  public async disable_local_bypass(id: string, url: string): Promise<void> {
+    await this.debugger.bypass_disable(id, url);
   }
 
   public async cookies_get(url: string): Promise<chrome.cookies.Cookie[]> {

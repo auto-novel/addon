@@ -13,23 +13,27 @@ export const browserInfo = {
 };
 
 export function detectBrowser() {
-  if (browserDetection.isFirefox()) {
-    browserInfo.isFirefox = true;
-    browserInfo.name = "firefox";
-    console.log("检测到浏览器:", browserInfo);
-    return browserInfo;
-  } else {
-    // 如果不是 Firefox，我们假定它是基于 Chromium 的浏览器
-    // 注意: `chrome` 命名空间在 Firefox 中也作为别名存在，所以不能用它来区分
-    browserInfo.isChrome = true;
-    if (browserDetection.isEdge()) {
-      browserInfo.name = "Edge";
+  try {
+    if (browserDetection.isFirefox()) {
+      browserInfo.isFirefox = true;
+      browserInfo.name = "firefox";
+      console.log("检测到浏览器:", browserInfo);
     } else {
-      browserInfo.name = "Chrome"; // 或 Opera, Brave 等
+      // 如果不是 Firefox，我们假定它是基于 Chromium 的浏览器
+      // 注意: `chrome` 命名空间在 Firefox 中也作为别名存在，所以不能用它来区分
+      browserInfo.isChrome = true;
+      if (browserDetection.isEdge()) {
+        browserInfo.name = "Edge";
+      } else {
+        browserInfo.name = "Chrome"; // 或 Opera, Brave 等
+      }
+      console.log("检测到基于 Chromium 的浏览器:", browserInfo.name);
     }
-    console.log("检测到基于 Chromium 的浏览器:", browserInfo.name);
-    return browserInfo;
+  } catch (error) {
+    browserInfo.isChrome = true;
+    browserInfo.name = "Chrome";
   }
+  return browserInfo;
 }
 detectBrowser();
 

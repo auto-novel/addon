@@ -81,3 +81,13 @@ export async function ChromeRemoteExecution<T, A extends any[]>({
     throw new Error("Failed to execute script in tab.");
   }
 }
+
+export function hashStringToInt(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash |= 0;
+  }
+  return hash;
+}

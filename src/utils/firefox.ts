@@ -1,11 +1,14 @@
+import { getVar, storeVar } from "@utils/storage";
+import { hashStringToInt } from "./tools";
+
 // chrome.declarativeNetRequest.HeaderOperation
-let spoof_rule_idx = 100;
-const spoof_rules: any[] = [];
-const spoof_rules_builder = (url: string, origin: string, referer: string) => {
+const spoof_rules_builder = (base: number, url: string, origin: string, referer: string): any[] => {
+  let idx = base;
   console.log("Building spoof rules for", { url, origin, referer });
+  const filter = new URL(url).origin;
   return [
     {
-      id: spoof_rule_idx++,
+      id: idx++,
       priority: 1,
       action: {
         type: "modifyHeaders",
@@ -15,21 +18,20 @@ const spoof_rules_builder = (url: string, origin: string, referer: string) => {
         ]
       },
       condition: {
-        urlFilter: `|${url}`,
+        urlFilter: `|${filter}/*`,
         resourceTypes: ["xmlhttprequest", "csp_report"]
       }
     }
   ];
 };
 
-let cors_rule_idx = 200;
-const cors_rules: any[] = [];
-const cors_rules_builder = (url: string) => {
+const cors_rules_builder = (base: number, url: string): any[] => {
+  let idx = base;
   const origin = new URL(url).origin;
   console.log("Building cors rules for", { url, origin });
   return [
     {
-      id: cors_rule_idx++,
+      id: idx++,
       priority: 1,
       action: {
         type: "modifyHeaders",
@@ -48,7 +50,7 @@ const cors_rules_builder = (url: string) => {
       }
     },
     {
-      id: cors_rule_idx++,
+      id: idx++,
       priority: 1,
       action: {
         type: "modifyHeaders",
@@ -64,7 +66,7 @@ const cors_rules_builder = (url: string) => {
       }
     },
     {
-      id: cors_rule_idx++,
+      id: idx++,
       priority: 1,
       action: {
         type: "modifyHeaders",
@@ -77,34 +79,58 @@ const cors_rules_builder = (url: string) => {
   ];
 };
 
-export async function installSpoofRules(url: string, origin: string, referer: string) {
-  const spoof_rules_ids = spoof_rules.map((r) => r.id);
-  spoof_rules.push(...spoof_rules_builder(url, origin, referer));
-  await chrome.declarativeNetRequest.updateDynamicRules({
-    addRules: spoof_rules as any,
-    removeRuleIds: spoof_rules_ids
-  });
+const SPOOF_KEY = "spoof_rules";
+export async function installSpoofRules(id: string, url: string, origin: string, referer: string) {
+  const base = hashStringToInt(`${id}_${url}_${origin}_${referer}`);
+  const newRules = spoof_rules_builder(base, url, origin, referer);
+  await storeVar(`${id}_${SPOOF_KEY}`, newRules);
+  try {
+    await chrome.declarativeNetRequest.updateDynamicRules({
+      addRules: newRules,
+      removeRuleIds: newRules.map((rule) => rule.id)
+    });
+  } catch (e) {
+    console.error("Failed to install spoof rules, ignoring: ", e);
+  }
+  return id;
 }
 
-export async function uninstallSpoofRules() {
-  const spoof_rules_ids = spoof_rules.map((r) => r.id);
-  await chrome.declarativeNetRequest.updateDynamicRules({
-    removeRuleIds: spoof_rules_ids
-  });
+export async function uninstallSpoofRules(id: string) {
+  const rules: any[] = (await getVar(`${id}_spoof_rules`)) ?? [];
+  const idsToRemove = rules.map((rule) => rule.id);
+  try {
+    await chrome.declarativeNetRequest.updateDynamicRules({
+      removeRuleIds: idsToRemove
+    });
+  } catch (e) {
+    console.error("Failed to uninstall spoof rules, ignoring: ", e);
+  }
 }
 
-export async function installCORSRules(url: string) {
-  const cors_rules_ids = cors_rules.map((r) => r.id);
-  cors_rules.push(...cors_rules_builder(url));
-  await chrome.declarativeNetRequest.updateDynamicRules({
-    addRules: cors_rules,
-    removeRuleIds: cors_rules_ids
-  });
+const CORS_KEY = "cors_rules";
+export async function installCORSRules(id: string, url: string) {
+  const base = hashStringToInt(`${id}_${url}`);
+  const newRules = cors_rules_builder(base, url);
+  await storeVar(`${id}_${CORS_KEY}`, newRules);
+  try {
+    await chrome.declarativeNetRequest.updateDynamicRules({
+      addRules: newRules,
+      removeRuleIds: newRules.map((rule) => rule.id)
+    });
+  } catch (e) {
+    console.error("Failed to install cors rules, ignoring: ", e);
+  }
+  return id;
 }
 
-export async function uninstallCORSRules() {
-  const cors_rules_ids = cors_rules.map((r) => r.id);
-  await browser.declarativeNetRequest.updateDynamicRules({
-    removeRuleIds: cors_rules_ids
-  });
+export async function uninstallCORSRules(id: string) {
+  const rules: any[] = (await getVar(`${id}_${CORS_KEY}`)) ?? [];
+  const idsToRemove = rules.map((rule) => rule.id);
+  try {
+    await browser.declarativeNetRequest.updateDynamicRules({
+      removeRuleIds: idsToRemove
+    });
+  } catch (e) {
+    console.error("Failed to uninstall cors rules, ignoring: ", e);
+  }
 }

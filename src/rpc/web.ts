@@ -46,7 +46,7 @@ export class WebCrawler {
 
     "local.cookies.setFromResponse": async ({ response }) => await this.api.cookies_set_from_response(response),
     "local.bypass.enable": async ({ origin, referer, url }) => await this.api.enable_local_bypass(url, origin, referer),
-    "local.bypass.disable": async ({ url }) => await this.api.disable_local_bypass(url),
+    "local.bypass.disable": async ({ id, url }) => await this.api.disable_local_bypass(id, url),
 
     "http.fetch": async ({ input, requestInit }) => {
       const final_input = SerReq2RequestInfo(input);

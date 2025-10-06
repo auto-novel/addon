@@ -22,7 +22,7 @@ export class Debugger {
   }
 
   private ensureChrome() {
-    if (browserInfo.isFirefox) {
+    if (true || browserInfo.isFirefox) {
       console.error("Debugger is not supported in Firefox.");
       throw new Error("Debugger is not supported in Firefox.");
     }
@@ -50,7 +50,7 @@ export class Debugger {
   }
 
   public async connect() {
-    if (browserInfo.isChrome) {
+    if (false && browserInfo.isChrome) {
       await this.debugger.attach({ tabId: this.tab.id! }, "1.3");
     }
   }
@@ -58,7 +58,7 @@ export class Debugger {
   public async disconnect() {
     this.spoofFuncs.clear();
     this.init.cors = false;
-    if (browserInfo.isChrome) {
+    if (false && browserInfo.isChrome) {
       this.debugger.onEvent.removeListener(this.onEventListener);
       await this.debugger.sendCommand(this.debuggee, "Fetch.disable");
       await this.debugger.detach({ tabId: this.tab.id });
@@ -178,14 +178,12 @@ export class Debugger {
     input: SerializableRequest | string,
     requestInit?: RequestInit
   ): Promise<SerializableResponse> {
-    await this.disable_cors_start();
+    await this.disable_cors_start("");
 
     const url = typeof input === "string" ? input : input.url;
     const origin = new URL(this.tab.url || this.tab.pendingUrl!).origin;
     const referer = origin + "/";
-    await installSpoofRules(url, origin, referer);
-    await installCORSRules(this.tab.url || this.tab.pendingUrl || "*");
-
+    const id = await this.bypass_enable(url, origin, referer);
     // const cookieStr = await this.cookies_get(url);
 
     // const headers = new Headers(requestInit?.headers || {});
@@ -206,7 +204,7 @@ export class Debugger {
       args: [JSON.stringify(input), requestInit]
     });
 
-    await this.disable_cors_stop();
+    await this.bypass_disable(id, url);
     const resp_ser = await Response2SerResp(resp);
     return resp_ser;
   }
@@ -334,26 +332,38 @@ export class Debugger {
     }
   }
 
-  public async disable_cors_start() {
+  public async bypass_enable(url: string, origin?: string, referer?: string) {
+    const id = crypto.randomUUID();
+    await this.spoof_request_start(id, url, origin, referer);
+    await this.disable_cors_start(id);
+    return id;
+  }
+
+  public async bypass_disable(id: string, url: string) {
+    await this.disable_cors_stop(id);
+    await this.spoof_request_stop(id, url);
+  }
+
+  private async disable_cors_start(id: string) {
     if (this.init.cors) return;
-    if (browserInfo.isChrome) {
+    if (false && browserInfo.isChrome) {
       await this.enableFetch();
     } else {
-      await installCORSRules(this.tab.url ?? this.tab.pendingUrl ?? "");
+      await installCORSRules(id, this.tab.url ?? this.tab.pendingUrl ?? "");
     }
     this.init.cors = true;
   }
 
-  public async disable_cors_stop() {
+  private async disable_cors_stop(id: string) {
     this.init.cors = false;
-    if (browserInfo.isFirefox) {
-      await uninstallCORSRules();
+    if (true || browserInfo.isFirefox) {
+      await uninstallCORSRules(id);
     }
   }
 
   private spoofFuncs = new Map();
-  public async spoof_request_start(url: string, origin?: string, referer?: string) {
-    if (browserInfo.isChrome) {
+  public async spoof_request_start(id: string, url: string, origin?: string, referer?: string) {
+    if (false && browserInfo.isChrome) {
       await this.enableFetch();
       const func = this.handleSPOOFRequest(url, origin, referer);
       if (this.spoofFuncs.has(url)) {
@@ -363,15 +373,15 @@ export class Debugger {
     } else {
       const targetOrigin = origin ?? new URL(url).origin;
       const targetReferer = referer ?? targetOrigin + "/";
-      await installSpoofRules(url, targetOrigin, targetReferer);
+      return await installSpoofRules(id, url, targetOrigin, targetReferer);
     }
   }
 
-  public async spoof_request_stop(url: string) {
-    if (browserInfo.isChrome) {
+  public async spoof_request_stop(id: string, url: string) {
+    if (false && browserInfo.isChrome) {
       this.spoofFuncs.delete(url);
     } else {
-      await uninstallSpoofRules();
+      await uninstallSpoofRules(id);
     }
   }
 }

@@ -181,7 +181,9 @@ export class Debugger {
     await this.disable_cors_start();
 
     const url = typeof input === "string" ? input : input.url;
-    await installSpoofRules(url);
+    const origin = new URL(this.tab.url || this.tab.pendingUrl!).origin;
+    const referer = origin + "/";
+    await installSpoofRules(url, origin, referer);
     await installCORSRules(this.tab.url || this.tab.pendingUrl || "*");
 
     // const cookieStr = await this.cookies_get(url);
@@ -337,13 +339,16 @@ export class Debugger {
     if (browserInfo.isChrome) {
       await this.enableFetch();
     } else {
-      installCORSRules(this.tab.url ?? this.tab.pendingUrl ?? "");
+      await installCORSRules(this.tab.url ?? this.tab.pendingUrl ?? "");
     }
     this.init.cors = true;
   }
 
-  public disable_cors_stop() {
+  public async disable_cors_stop() {
     this.init.cors = false;
+    if (browserInfo.isFirefox) {
+      await uninstallCORSRules();
+    }
   }
 
   private spoofFuncs = new Map();
@@ -356,15 +361,17 @@ export class Debugger {
       }
       this.spoofFuncs.set(url, func);
     } else {
-      installSpoofRules(url);
+      const targetOrigin = origin ?? new URL(url).origin;
+      const targetReferer = referer ?? targetOrigin + "/";
+      await installSpoofRules(url, targetOrigin, targetReferer);
     }
   }
 
-  public spoof_request_stop(url: string) {
+  public async spoof_request_stop(url: string) {
     if (browserInfo.isChrome) {
       this.spoofFuncs.delete(url);
     } else {
-      uninstallSpoofRules();
+      await uninstallSpoofRules();
     }
   }
 }

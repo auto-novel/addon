@@ -153,8 +153,6 @@ export class Debugger {
       console.log(`Successfully set ${setPromises.length} cookies for ${response.url}`);
     } catch (error) {
       console.error("Failed to set one or more cookies:", error);
-      // Promise.all fails fast. For more resilience, you could use Promise.allSettled
-      // to attempt to set all cookies even if some fail.
     }
   }
 
@@ -163,6 +161,7 @@ export class Debugger {
     requestInit?: RequestInit
   ): Promise<SerializableResponse> {
     await this.disable_cors_start();
+
     // const url = typeof input === "string" ? input : input.url;
     // const cookieStr = await this.cookies_get(url);
 
@@ -174,76 +173,19 @@ export class Debugger {
     //   headers: Object.fromEntries(headers.entries()),
     // };
 
-    const input_ser = JSON.stringify(input);
-    const js = `
-      (async () => {
-        function deserializeRequest(req) {
-          if (typeof req === "string") {
-            return req;
-          }
+    const resp = await ChromeRemoteExecution({
+      target: { tabId: this.tab.id! },
+      func: async (input: string, requestInit?: RequestInit) => {
+        const _input = SerReq2RequestInfo(JSON.parse(input));
+        const ret = await fetch(_input, requestInit);
+        return ret;
+      },
+      args: [JSON.stringify(input), requestInit]
+    });
 
-          const init = {
-            method: req.method,
-            headers: new Headers(req.headers),
-            body: req.body,
-            mode: req.mode,
-            credentials: req.credentials,
-            cache: req.cache,
-            redirect: req.redirect,
-            referrer: req.referrer,
-            integrity: req.integrity
-          };
-
-          return new Request(req.url, init);
-        }
-
-        function SerReq2RequestInfo(input) {
-            let final_input;
-            switch (typeof input) {
-              case "string": {
-                final_input = input;
-                break;
-              }
-              case "object": {
-                final_input = deserializeRequest(input);
-                break;
-              }
-              default:
-                throw new Error("Invalid input type for http.raw");
-            }
-            return final_input;
-        }
-
-        const input = SerReq2RequestInfo(JSON.parse('${input_ser}'));
-        const requestInit = JSON.parse('${JSON.stringify(requestInit || {})}');
-        const response = await fetch(input, requestInit);
-
-        const headers = {};
-        for (const [key, value] of response.headers.entries()) {
-          headers[key] = value;
-        }
-
-        const bodyText = await response.text();
-
-        const serializableResponse = {
-          body: bodyText,
-          status: response.status,
-          statusText: response.statusText,
-          ok: response.ok,
-          headers: headers,
-          redirected: response.redirected,
-          url: response.url,
-          type: response.type,
-        };
-        return serializableResponse;
-      })();
-    `;
-    const resp = await this.danger_remote_execute<SerializableResponse>(js);
-    // this.cookies_refresh(resp).catch((e) => {
-    //   console.error("Failed to refresh cookies:", e);
-    // });
     await this.disable_cors_stop();
-    return resp;
+    const resp_ser = await Response2SerResp(resp);
+    return resp_ser;
   }
 
   public async http_get(url: string, params: Record<string, string> = {}, headers = {}): Promise<SerializableResponse> {

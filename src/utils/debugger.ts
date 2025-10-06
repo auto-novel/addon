@@ -1,6 +1,8 @@
 import { Response2SerResp, type SerializableRequest, type SerializableResponse } from "@rpc/client/client.types";
 import { ChromeRemoteExecution, SerReq2RequestInfo } from "./tools";
 import setCookie from "set-cookie-parser";
+import { browserInfo } from "./consts";
+import { installCORSRules, installSpoofRules, uninstallCORSRules, uninstallSpoofRules } from "./firefox";
 
 type Tab = chrome.tabs.Tab;
 
@@ -19,32 +21,48 @@ export class Debugger {
     this.debuggee = { tabId: tab.id! };
   }
 
+  private ensureChrome() {
+    if (browserInfo.isFirefox) {
+      console.error("Debugger is not supported in Firefox.");
+      throw new Error("Debugger is not supported in Firefox.");
+    }
+  }
+
+  get debugger() {
+    this.ensureChrome();
+    return chrome.debugger;
+  }
+
   private async enableFetch() {
     if (this.init.fetch) return;
-    await chrome.debugger.sendCommand(this.debuggee, "Fetch.enable", {
+    await this.debugger.sendCommand(this.debuggee, "Fetch.enable", {
       patterns: [{ requestStage: "Request" }, { requestStage: "Response" }]
     });
-    chrome.debugger.onEvent.addListener(this.onEventListener);
+    this.debugger.onEvent.addListener(this.onEventListener);
     this.init.fetch = true;
     console.log("[Debugger] Fetch interception enabled.");
   }
 
   private async enablePage() {
     if (this.init.page) return;
-    await chrome.debugger.sendCommand(this.debuggee, "Page.enable");
+    await this.debugger.sendCommand(this.debuggee, "Page.enable");
     this.init.page = true;
   }
 
   public async connect() {
-    await chrome.debugger.attach({ tabId: this.tab.id! }, "1.3");
+    if (browserInfo.isChrome) {
+      await this.debugger.attach({ tabId: this.tab.id! }, "1.3");
+    }
   }
 
   public async disconnect() {
     this.spoofFuncs.clear();
     this.init.cors = false;
-    chrome.debugger.onEvent.removeListener(this.onEventListener);
-    await chrome.debugger.sendCommand(this.debuggee, "Fetch.disable");
-    await chrome.debugger.detach({ tabId: this.tab.id });
+    if (browserInfo.isChrome) {
+      this.debugger.onEvent.removeListener(this.onEventListener);
+      await this.debugger.sendCommand(this.debuggee, "Fetch.disable");
+      await this.debugger.detach({ tabId: this.tab.id });
+    }
   }
 
   // Excute js at the earliest possible time.
@@ -52,7 +70,7 @@ export class Debugger {
     const TAG = "[AutoNovel.RCE.asap]";
     console.warn(`${TAG} executing js: `, js);
     await this.enablePage();
-    const result = await chrome.debugger.sendCommand(this.debuggee, "Page.addScriptToEvaluateOnNewDocument", {
+    const result = await this.debugger.sendCommand(this.debuggee, "Page.addScriptToEvaluateOnNewDocument", {
       source: js
     });
     console.log(`${TAG} script result: `, result);
@@ -63,7 +81,7 @@ export class Debugger {
   private async danger_remote_execute<T>(js: string): Promise<T> {
     const TAG = "[AutoNovel.RCE]";
     console.warn(`${TAG} executing js: `, js);
-    const ret = (await chrome.debugger.sendCommand(this.debuggee, "Runtime.evaluate", {
+    const ret = (await this.debugger.sendCommand(this.debuggee, "Runtime.evaluate", {
       expression: js,
       awaitPromise: true,
       returnByValue: true
@@ -162,7 +180,10 @@ export class Debugger {
   ): Promise<SerializableResponse> {
     await this.disable_cors_start();
 
-    // const url = typeof input === "string" ? input : input.url;
+    const url = typeof input === "string" ? input : input.url;
+    await installSpoofRules(url);
+    await installCORSRules(this.tab.url || this.tab.pendingUrl || "*");
+
     // const cookieStr = await this.cookies_get(url);
 
     // const headers = new Headers(requestInit?.headers || {});
@@ -234,10 +255,10 @@ export class Debugger {
     try {
       if (params.responseStatusCode) {
         // 响应阶段的默认放行
-        await chrome.debugger.sendCommand(this.debuggee, "Fetch.continueResponse", { requestId });
+        await this.debugger.sendCommand(this.debuggee, "Fetch.continueResponse", { requestId });
       } else {
         // 请求阶段的默认放行
-        await chrome.debugger.sendCommand(this.debuggee, "Fetch.continueRequest", { requestId });
+        await this.debugger.sendCommand(this.debuggee, "Fetch.continueRequest", { requestId });
       }
     } catch (e) {
       if (!String(e).includes("Invalid state")) {
@@ -271,7 +292,7 @@ export class Debugger {
       console.log("[Debugger] Spoofed Headers:", spoofedHeaders);
 
       try {
-        await chrome.debugger.sendCommand(this.debuggee, "Fetch.continueRequest", {
+        await this.debugger.sendCommand(this.debuggee, "Fetch.continueRequest", {
           requestId: requestId,
           headers: spoofedHeaders
         });
@@ -301,7 +322,7 @@ export class Debugger {
     newHeaders.push({ name: "Access-Control-Allow-Credentials", value: "true" });
 
     try {
-      await chrome.debugger.sendCommand(source, "Fetch.continueResponse", {
+      await this.debugger.sendCommand(source, "Fetch.continueResponse", {
         requestId: requestId,
         responseCode: responseStatusCode,
         responseHeaders: newHeaders
@@ -313,7 +334,11 @@ export class Debugger {
 
   public async disable_cors_start() {
     if (this.init.cors) return;
-    await this.enableFetch();
+    if (browserInfo.isChrome) {
+      await this.enableFetch();
+    } else {
+      installCORSRules(this.tab.url ?? this.tab.pendingUrl ?? "");
+    }
     this.init.cors = true;
   }
 
@@ -323,15 +348,23 @@ export class Debugger {
 
   private spoofFuncs = new Map();
   public async spoof_request_start(url: string, origin?: string, referer?: string) {
-    await this.enableFetch();
-    const func = this.handleSPOOFRequest(url, origin, referer);
-    if (this.spoofFuncs.has(url)) {
-      return;
+    if (browserInfo.isChrome) {
+      await this.enableFetch();
+      const func = this.handleSPOOFRequest(url, origin, referer);
+      if (this.spoofFuncs.has(url)) {
+        return;
+      }
+      this.spoofFuncs.set(url, func);
+    } else {
+      installSpoofRules(url);
     }
-    this.spoofFuncs.set(url, func);
   }
 
   public spoof_request_stop(url: string) {
-    this.spoofFuncs.delete(url);
+    if (browserInfo.isChrome) {
+      this.spoofFuncs.delete(url);
+    } else {
+      uninstallSpoofRules();
+    }
   }
 }

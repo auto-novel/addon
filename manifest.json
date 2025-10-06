@@ -6,7 +6,12 @@
     "author": "kurikomoe",
     "homepage_url": "https://n.novelia.cc/",
     "description": "轻小说机翻站用户侧爬虫插件，用于辅助采集轻小说网站内容。",
-    "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAmzpvkqphjS1Od8waHDo12FnmcE7+QkzVTr/MKtv64UzlDhF54W8nJR2v4qWy+gHzJkf6QakEELfE4jOJAdOPxNQFd8YgEvsYk8Acfo9Pyki/3jpBB8dzDemAjABNasNGyd9RIHdOuZd2Evl+0NyUNHaCSzSgPJBcGZzg8ACfp8VGhPltiNlxy/JXQJZStR35fiFndC3WP9qaeztLy+jeg5ieQY8ULNLgJDbL02S1KEIB0ijaR9CICaiSYsPFdPhMlYdR8kYhHhrRfXljoJPw4LH0ThMrOoeNWHI6DgO/qSXgSDx4LknOJ28UPCEqHTkPo6WTDDNLpDhFG3ZwMbpHmQIDAQAB",
+    "chrome:key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAmzpvkqphjS1Od8waHDo12FnmcE7+QkzVTr/MKtv64UzlDhF54W8nJR2v4qWy+gHzJkf6QakEELfE4jOJAdOPxNQFd8YgEvsYk8Acfo9Pyki/3jpBB8dzDemAjABNasNGyd9RIHdOuZd2Evl+0NyUNHaCSzSgPJBcGZzg8ACfp8VGhPltiNlxy/JXQJZStR35fiFndC3WP9qaeztLy+jeg5ieQY8ULNLgJDbL02S1KEIB0ijaR9CICaiSYsPFdPhMlYdR8kYhHhrRfXljoJPw4LH0ThMrOoeNWHI6DgO/qSXgSDx4LknOJ28UPCEqHTkPo6WTDDNLpDhFG3ZwMbpHmQIDAQAB",
+    "browser_specific_settings": {
+      "gecko": {
+        "id": "addon@n.novelia.cc"
+      }
+    },
     "icons": {
       "16": "icons/16.png",
       "32": "icons/32.png",
@@ -22,10 +27,13 @@
         },
         "default_title": "轻小说机翻站-用户侧爬虫"
     },
-    "background": {
+    "chrome:background": {
         "service_worker": "src/worker.ts"
     },
-    "externally_connectable": {
+    "firefox:background": {
+        "scripts": [ "src/worker.ts" ]
+    },
+    "chrome:externally_connectable": {
       "matches": [
         "*://*.novelia.cc/*",
         "*://*.fishhawk.top/*",
@@ -53,12 +61,26 @@
         "*://*.alphapolis.co.jp/*",
         "*://novelism.jp/*"
     ],
-    "permissions": [
+    "chrome:permissions": [
         "debugger",
         "scripting",
         "tabs",
         "cookies",
-        "storage"
+        "storage",
+        "declarativeNetRequest",
+        "declarativeNetRequestWithHostAccess",
+        "webRequest",
+        "webRequestBlocking"
+    ],
+    "firefox:permissions": [
+        "scripting",
+        "tabs",
+        "cookies",
+        "storage",
+        "declarativeNetRequest",
+        "declarativeNetRequestWithHostAccess",
+        "webRequest",
+        "webRequestBlocking"
     ],
     "content_scripts": [
         {

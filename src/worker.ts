@@ -1,12 +1,8 @@
-import { isDebug } from "@/utils/consts";
+import { browserInfo, detectBrowser, isDebug, isMessagingAllowed } from "@/utils/consts";
 import { WebCrawler } from "@rpc/web";
 import { MSG_TYPE, type AutoNovelCrawlerCommand, type Message, type MSG_CRAWLER, type MSG_RESPONSE } from "@utils/msg";
 import { do_redirection } from "@utils/redirect";
 import { Api } from "@utils/api";
-
-chrome.runtime.onInstalled.addListener(() => {
-  console.debug(`[AutoNovel] CSC production mode: ${isDebug}`);
-});
 
 const crawlerInstances: Map<string, WebCrawler> = new Map();
 
@@ -31,24 +27,6 @@ function getOrCreateCrawler(payload: AutoNovelCrawlerCommand, env: EnvType): Web
   return crawler;
 }
 
-chrome.tabs.onRemoved.addListener(async (tabId) => {
-  const toRemove = crawlerInstances
-    .entries()
-    .filter(([_, crawler]) => crawler.api.tab_id === tabId)
-    .toArray();
-
-  if (toRemove.length === 0) return;
-
-  for (const [job_id, _] of toRemove) {
-    crawlerInstances.delete(job_id);
-  }
-  const quitPromises = toRemove.map(([_, crawler]) => {
-    if (!crawler) return Promise.resolve();
-    return crawler.job_quit();
-  });
-  await Promise.all(quitPromises);
-});
-
 type Tab = chrome.tabs.Tab;
 export type EnvType = {
   sender: chrome.runtime.MessageSender;
@@ -57,8 +35,10 @@ export type EnvType = {
 };
 
 const messageFn = (message: Message, sender: chrome.runtime.MessageSender, sendResponse: (response: any) => void) => {
-  console.debug("[AutoNovel] Received message: ", message, sender);
-
+  if (isDebug) {
+    console.info("[AutoNovel] Received message: ", message, sender);
+  }
+  if (!isMessagingAllowed(sender.url ?? sender.origin ?? "")) return;
   switch (message.type) {
     case MSG_TYPE.PING: {
       sendResponse("pong");
@@ -116,6 +96,32 @@ const messageFn = (message: Message, sender: chrome.runtime.MessageSender, sendR
 
 chrome.runtime.onMessage.addListener(messageFn);
 chrome.runtime.onMessageExternal.addListener(messageFn);
+
+chrome.tabs.onRemoved.addListener(async (tabId) => {
+  const toRemove = crawlerInstances
+    .entries()
+    .filter(([_, crawler]) => crawler.api.tab_id === tabId)
+    .toArray();
+
+  if (toRemove.length === 0) return;
+
+  for (const [job_id, _] of toRemove) {
+    crawlerInstances.delete(job_id);
+  }
+  const quitPromises = toRemove.map(([_, crawler]) => {
+    if (!crawler) return Promise.resolve();
+    return crawler.job_quit();
+  });
+  await Promise.all(quitPromises);
+});
+
+chrome.runtime.onInstalled.addListener(() => {
+  console.debug(`[AutoNovel] CSC debug mode: ${isDebug}`);
+});
+
+chrome.runtime.onStartup.addListener(async () => {
+  await detectBrowser();
+});
 
 chrome.action.onClicked.addListener(async () => {
   if (isDebug) {

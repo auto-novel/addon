@@ -97,9 +97,10 @@ export async function installSpoofRules(id: string, url: string, origin: string,
 }
 
 export async function uninstallSpoofRules(id: string) {
-  const key = `${id}_spoof_rules`;
-  const rules: any[] = (await sessionGet(key)) ?? [];
+  const key = `${id}_${SPOOF_KEY}`;
+  const rules: any[] = (await sessionGet(key)) || [];
   const idsToRemove = rules.map((rule) => rule.id);
+  console.log("Uninstalling spoof rules for", { id, idsToRemove });
   try {
     await chrome.declarativeNetRequest.updateDynamicRules({
       removeRuleIds: idsToRemove
@@ -107,6 +108,8 @@ export async function uninstallSpoofRules(id: string) {
     await sessionDel(key);
   } catch (e) {
     console.error("Failed to uninstall spoof rules, ignoring: ", e);
+  } finally {
+    await sessionDel(key);
   }
 }
 
@@ -129,14 +132,16 @@ export async function installCORSRules(id: string, url: string) {
 
 export async function uninstallCORSRules(id: string) {
   const key = `${id}_${CORS_KEY}`;
-  const rules: any[] = (await sessionGet(key)) ?? [];
+  const rules: any[] = (await sessionGet(key)) || [];
   const idsToRemove = rules.map((rule) => rule.id);
+  console.log("Uninstalling CORS rules for", { id, idsToRemove });
   try {
     await browser.declarativeNetRequest.updateDynamicRules({
       removeRuleIds: idsToRemove
     });
-    await sessionDel(key);
   } catch (e) {
     console.error("Failed to uninstall cors rules, ignoring: ", e);
+  } finally {
+    await sessionDel(key);
   }
 }

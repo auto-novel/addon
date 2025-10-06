@@ -1,12 +1,14 @@
 export async function sessionStore<T>(key: string, value: T) {
-  await browser.storage.local.set({ key, value });
+  const data: any = {};
+  data[key] = value;
+  await chrome.storage.local.set(data);
 }
 
 export async function sessionGet<T>(key: string): Promise<T | null> {
-  const result = await browser.storage.local.get(key);
+  const result = await chrome.storage.local.get(key);
   return result[key];
 }
 
 export async function sessionDel<T>(key: string): Promise<void> {
-  await browser.storage.local.remove(key);
+  await chrome.storage.local.remove(key);
 }

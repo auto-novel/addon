@@ -1,9 +1,7 @@
 {
+  "name": "addon",
   "private": true,
-  "name": "my-extension",
-  "description": "A modern browser extension new tab page example built with Extension.js and TypeScript. Demonstrates how to create type-safe custom new tab pages with clean, maintainable code.",
-  "version": "0.0.1",
-  "license": "MIT",
+  "version": "1.1.0",
   "type": "module",
   "author": {
     "name": "kurikomoe",
@@ -15,6 +13,15 @@
       "pnpm eslint",
       "pnpm prettier --write"
     ]
+  },
+  "scripts": {
+    "prepare": "husky",
+    "dev": "extension dev --polyfill",
+    "start": "extension start --polyfill",
+    "build": "extension build --polyfill",
+    "lint": "eslint src",
+    "lint:fix": "eslint --fix src",
+    "server": "deno tests/demo_server.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",
@@ -32,15 +39,6 @@
     "prettier": "3.6.2",
     "typescript": "5.3.3",
     "typescript-eslint": "^8.44.1"
-  },
-  "scripts": {
-    "prepare": "husky",
-    "dev": "extension dev --polyfill",
-    "start": "extension start --polyfill",
-    "build": "extension build --polyfill",
-    "lint": "eslint src",
-    "lint:fix": "eslint --fix src",
-    "server": "deno tests/demo_server.ts"
   },
   "dependencies": {
     "@braintree/browser-detection": "^2.1.0",

@@ -1,11 +1,11 @@
 {
     "$schema": "https://json.schemastore.org/chrome-manifest.json",
     "manifest_version": 3,
-    "version": "0.0.1",
-    "name": "轻小说机翻站-用户侧爬虫",
+    "version": "1.1.0",
+    "name": "轻小说机翻机器人",
     "author": "kurikomoe",
     "homepage_url": "https://n.novelia.cc/",
-    "description": "轻小说机翻站用户侧爬虫插件，用于辅助采集轻小说网站内容。",
+    "description": "轻小说机翻站用户侧爬虫插件",
     "chrome:key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAmzpvkqphjS1Od8waHDo12FnmcE7+QkzVTr/MKtv64UzlDhF54W8nJR2v4qWy+gHzJkf6QakEELfE4jOJAdOPxNQFd8YgEvsYk8Acfo9Pyki/3jpBB8dzDemAjABNasNGyd9RIHdOuZd2Evl+0NyUNHaCSzSgPJBcGZzg8ACfp8VGhPltiNlxy/JXQJZStR35fiFndC3WP9qaeztLy+jeg5ieQY8ULNLgJDbL02S1KEIB0ijaR9CICaiSYsPFdPhMlYdR8kYhHhrRfXljoJPw4LH0ThMrOoeNWHI6DgO/qSXgSDx4LknOJ28UPCEqHTkPo6WTDDNLpDhFG3ZwMbpHmQIDAQAB",
     "browser_specific_settings": {
       "gecko": {
@@ -42,8 +42,6 @@
       ]
     },
     "host_permissions": [
-        "*://example.com/*",
-        "*://echo.free.beeceptor.com/*",
         "*://localhost/*",
 
         "*://*.novelia.cc/*",

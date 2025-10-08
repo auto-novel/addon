@@ -25,6 +25,7 @@ export default defineConfig({
       'https://novelism.jp/*',
     ],
   },
+  srcDir: 'src',
   webExt: {
     openDevtools: true,
     startUrls: ['http://localhost:5173/wenku-edit'],

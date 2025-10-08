@@ -6,9 +6,8 @@ export default defineConfig({
   manifest: {
     name: '轻小说机翻机器人',
     homepage_url: 'https://n.novelia.cc/',
+    action: {},
     host_permissions: [
-      '*://localhost/*',
-
       'https://*.novelia.cc/*',
       'https://*.fishhawk.top/*',
 

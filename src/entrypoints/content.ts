@@ -21,7 +21,7 @@ function process_forward(event: MessageEvent) {
 
 export default defineContentScript({
   matches: [
-    '*://localhost/*',
+    'http://localhost/*',
     'https://*.novelia.cc/*',
     'https://*.fishhawk.top/*',
   ],

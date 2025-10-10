@@ -19,7 +19,6 @@ export async function tab_dom_querySelectorAll(
   selector: string,
 ): Promise<string[]> {
   const tab = await tabResMgr.findOrCreateTab(url);
-
   const results = await browserRemoteExecution({
     target: { tabId: tab.id! },
     func: (sel: string) => {
@@ -29,7 +28,7 @@ export async function tab_dom_querySelectorAll(
     },
     args: [selector],
   });
-
+  await tabResMgr.releaseTab(tab.id!);
   return results;
 }
 
@@ -39,6 +38,7 @@ export async function tab_http_fetch(
   requestInit?: RequestInit,
 ): Promise<SerializableResponse> {
   const tab = await tabResMgr.findOrCreateTab(tabUrl);
+  console.log(tab.id);
 
   // NOTE(kuriko): 在 tab 上面直接执行 fetch，一般不用考虑 CORS bypass 问题。
   const respSer = await browserRemoteExecution({
@@ -107,6 +107,7 @@ export async function tab_http_fetch(
         };
         return serializableResponse;
       }
+
       const _input = SerReq2RequestInfo(input);
       const ret = await fetch(_input, requestInit);
       const respSer = await Response2SerResp(ret);
@@ -115,7 +116,7 @@ export async function tab_http_fetch(
     },
     args: [input, requestInit],
   });
-
+  await tabResMgr.releaseTab(tab.id!);
   return respSer;
 }
 
@@ -125,12 +126,12 @@ export async function cookies_get(
   return await browser.cookies.getAll({ url });
 }
 
-export async function cookies_get_str(url: string): Promise<string> {
+export async function cookies_getStr(url: string): Promise<string> {
   const cookies = await cookies_get(url);
   return cookies.map((c) => `${c.name}=${c.value}`).join("; ");
 }
 
-export async function cookies_setFromResponse(
+export async function cookies_setFromSerResp(
   response: SerializableResponse,
 ): Promise<void> {
   const setCookieStrings = Array.from(response.headers)
@@ -189,18 +190,34 @@ type _rule4 = Browser.declarativeNetRequest.RuleCondition["urlFilter"];
 type _rule5 = Browser.declarativeNetRequest.RuleCondition["resourceTypes"];
 type _rule6 = Browser.declarativeNetRequest.RuleCondition["responseHeaders"];
 
-export async function global_install_bypass(
-  requestUrl: string,
-  origin?: string,
-  referer?: string,
-): Promise<string> {
-  throw new Error("Not implemented");
-}
-
-export async function global_uninstall_bypass(
+export async function local_install_bypass(
+  tabId: number,
   requestUrl: string,
   origin?: string,
   referer?: string,
 ): Promise<void> {
-  throw new Error("Not implemented");
+  const _origin = origin ?? new URL(requestUrl).origin;
+  const _referer = referer ?? _origin + "/";
+  const tab = await browser.tabs.get(tabId);
+  const tabUrl = tab.url ?? tab.pendingUrl;
+  if (!tabUrl) throw newError(`Tab has no url: ${tab}`);
+
+  await installSpoofRules(tabId, requestUrl, _origin, _referer);
+  await installCORSRules(tabId, tabUrl);
+}
+
+export async function local_uninstall_bypass(
+  tabId: number,
+  requestUrl: string,
+  origin?: string,
+  referer?: string,
+): Promise<void> {
+  const _origin = origin ?? new URL(requestUrl).origin;
+  const _referer = referer ?? _origin + "/";
+  const tab = await browser.tabs.get(tabId);
+  const tabUrl = tab.url ?? tab.pendingUrl;
+  if (!tabUrl) throw newError(`Tab has no url: ${tab}`);
+
+  await uninstallSpoofRules(tabId, requestUrl, _origin, _referer);
+  await uninstallCORSRules(tabId, tabUrl);
 }

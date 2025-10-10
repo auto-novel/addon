@@ -1,11 +1,5 @@
-import { Api } from "@/utils/api";
-import { type ClientMethods } from "./types";
-
-type Tab = chrome.tabs.Tab;
-
-export type EnvType = {
-  sender: Browser.runtime.MessageSender;
-};
+import * as Api from "@/utils/api";
+import { EnvType, type ClientMethods } from "@/rpc/types";
 
 export async function dispatchCommand(
   command: keyof ClientMethods,
@@ -14,8 +8,7 @@ export async function dispatchCommand(
 ) {
   const method = METHODS[command];
   if (!method) throw new Error(`Unknown command: ${command}`);
-  params = { ...params, ...env };
-  return await method(params);
+  return await method(params, env);
 }
 
 const METHODS: ClientMethods = {
@@ -29,25 +22,31 @@ const METHODS: ClientMethods = {
     };
   },
 
-  "local.bypass.enable": async ({ origin, referer, url }) =>
-    await api.enable_local_bypass(url, origin, referer),
-  "local.bypass.disable": async ({ id, url }) =>
-    await api.disable_local_bypass(id, url),
+  "local.bypass.enable": async (
+    { requestUrl, origin, referer },
+    { sender: { tabId } },
+  ) => await Api.local_install_bypass(tabId, requestUrl, origin, referer),
+
+  "local.bypass.disable": async (
+    { requestUrl, origin, referer },
+    { sender: { tabId } },
+  ) => await Api.local_uninstall_bypass(tabId, requestUrl, origin, referer),
 
   "http.fetch": async ({ input, requestInit }) => {
     const final_input = serReq2RequestInfo(input);
-    return await api.http_fetch(final_input, requestInit);
+    return await Api.http_fetch(final_input, requestInit);
   },
 
-  "tab.switchTo": async ({ url }) => await api.tab_swith_to(url),
-  "tab.http.fetch": async ({ input, requestInit }) => {
-    return await api.tab_http_fetch(input, requestInit);
-  },
-  "tab.dom.querySelectorAll": async ({ selector }) =>
-    await api.tab_dom_querySelectorAll(selector),
+  "tab.http.fetch": async ({ tabUrl, input, requestInit }) =>
+    await Api.tab_http_fetch(tabUrl, input, requestInit),
+
+  "tab.dom.querySelectorAll": async ({ url, selector }) =>
+    await Api.tab_dom_querySelectorAll(url, selector),
 
   "cookies.setFromResponse": async ({ response }) =>
-    await api.cookies_set_from_response(response),
-  "cookies.get": async ({ url }) => await api.cookies_get(url),
-  "cookies.getStr": async ({ url }) => await api.cookies_get_str(url),
+    await Api.cookies_setFromSerResp(response),
+
+  "cookies.get": async ({ url }) => await Api.cookies_get(url),
+
+  "cookies.getStr": async ({ url }) => await Api.cookies_getStr(url),
 };

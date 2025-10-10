@@ -1,5 +1,5 @@
 import {
-  deserializeRequest,
+  SerReq2Request,
   type SerializableRequest,
   type SerializableResponse,
 } from "@/rpc/types";
@@ -60,7 +60,7 @@ export function serReq2RequestInfo(input: SerializableRequest | string) {
       break;
     }
     case "object": {
-      final_input = deserializeRequest(input as SerializableRequest);
+      final_input = SerReq2Request(input as SerializableRequest);
       break;
     }
     default:

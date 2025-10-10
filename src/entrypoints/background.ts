@@ -1,15 +1,17 @@
 import { IS_DEBUG } from "@/utils/consts";
-import {
-  MsgType,
-  type CrawlerCommand,
-  type Message,
-  type MsgCrawler,
-  type MsgResponse,
-} from "@/rpc/msg";
+import { MsgCrawler, MsgResponse, MsgType, type Message } from "@/rpc/msg";
 import { doRedirection } from "@/utils/redirect";
 import { debugPrint } from "@/utils/tools";
+import { alarmLisener } from "@/utils/alarm";
+
+import * as Api from "@/utils/api";
+import { dispatchCommand } from "@/rpc/web";
+import { EnvType } from "@/rpc/types";
 
 export default defineBackground(() => {
+  console.debug(`[AutoNovel] CSC debug mode: ${IS_DEBUG}`);
+  browser.alarms.onAlarm.addListener(alarmLisener);
+
   const messageFn = (
     message: Message,
     sender: Browser.runtime.MessageSender,
@@ -26,14 +28,30 @@ export default defineBackground(() => {
       }
       case MsgType.CrawlerReq: {
         const msg = message as MsgCrawler;
-        msg.id = msg.id ?? crypto.randomUUID();
 
-        crawler
-          .applyCommand(payload.cmd, payload.params, env)
+        if (
+          sender.id === undefined ||
+          sender.url === undefined ||
+          sender.tab === undefined ||
+          sender.tab?.id == undefined
+        ) {
+          throw newError(`Invalid sender: ${sender}`);
+        }
+
+        const env: EnvType = {
+          sender: {
+            id: sender.id,
+            url: sender.url,
+            tabId: sender.tab?.id,
+            origin: sender.origin,
+          },
+        };
+
+        dispatchCommand(msg.payload.cmd, msg.payload.params, env)
           .then((result) => {
-            console.debug("[AutoNovel] Crawler Result: ", result);
+            debugPrint("[AutoNovel] Crawler Result: ", result);
 
-            const resp: MsgResponse = {
+            const resp = {
               type: MsgType.Response,
               id: msg.id,
               payload: { success: true, result },
@@ -47,16 +65,11 @@ export default defineBackground(() => {
               payload: { success: false, error: error.message },
             };
             return sendResponse(resp);
-          })
-          .finally(async () => {
-            if (!payload.single) return;
-            crawlerInstances.delete(job_id);
-            await crawler.job_quit();
           });
         break;
       }
       default:
-        throw new Error(`Unknown message type: ${message.type}`);
+        throw newError(`Unknown message type: ${message.type}`);
     }
     return true;
   };
@@ -64,88 +77,24 @@ export default defineBackground(() => {
   browser.runtime.onMessage.addListener(messageFn);
   browser.runtime.onMessageExternal.addListener(messageFn);
 
-  browser.tabs.onRemoved.addListener(async (tabId) => {
-    const toRemove = crawlerInstances
-      .entries()
-      .filter(([_, crawler]) => crawler.api.tab_id === tabId)
-      .toArray();
-
-    if (toRemove.length === 0) return;
-
-    for (const [job_id, _] of toRemove) {
-      crawlerInstances.delete(job_id);
-    }
-    const quitPromises = toRemove.map(([_, crawler]) => {
-      if (!crawler) return Promise.resolve();
-      return crawler.job_quit();
-    });
-    await Promise.all(quitPromises);
-  });
-
-  browser.runtime.onInstalled.addListener(() => {
-    console.debug(`[AutoNovel] CSC debug mode: ${IS_DEBUG}`);
-    browser.declarativeNetRequest.getDynamicRules((rules) => {
-      console.info("[AutoNovel] Cleaning up old rules: ", rules);
-      browser.declarativeNetRequest.updateDynamicRules({
-        removeRuleIds: rules.map((r) => r.id),
-      });
-    });
-  });
-
-  browser.runtime.onStartup.addListener(async () => {
-    await detectBrowser();
-    await browser.declarativeNetRequest.getDynamicRules((rules) => {
-      console.info("[AutoNovel] Cleaning up old rules: ", rules);
-      browser.declarativeNetRequest.updateDynamicRules({
-        removeRuleIds: rules.map((r) => r.id),
-      });
-    });
-  });
-
   browser.action.onClicked.addListener(async () => {
+    debugPrint("Browser action clicked");
     if (IS_DEBUG) {
-      // FIXME(kuriko): 怎么可能又重定向又打开设置页的
-      // browser.runtime.openOptionsPage();
-
-      // const c = new WebCrawler("https://www.pixiv.net/novel/show.php?id=20701122");
-      const api = Api.fromURL("https://example.com");
-      {
-        const resp = await api.http_get(
-          "https://echo.free.beeceptor.com",
-          { a: "1", b: "2" },
-          [["X-Test", "123"]],
+      try {
+        // FIXME(kuriko): 怎么可能又重定向又打开设置页的
+        const resp = await Api.tab_http_fetch(
+          "https://www.amazon.co.jp",
+          "https://www.amazon.co.jp/dp/4098505789",
+          {},
         );
-        console.log(resp);
+        debugPrint("http_fetch: ", resp);
+      } catch (e) {
+        debugPrint.error("Error in browser action: ", e);
       }
-      {
-        const resp = await api.http_fetch("https://echo.free.beeceptor.com");
-        console.log(resp);
-      }
-      {
-        const resp = await api.tab_http_fetch(
-          "https://echo.free.beeceptor.com",
-        );
-        console.log(resp);
-      }
-      // {
-      //   const resp = await api.http_post_json("https://echo.free.beeceptor.com", { hello: "world" }, [["X-Test", "123"]]);
-      //   console.log(resp);
-      // }
-      // {
-      //   await fut;
-      //   const resp = await api.tab_http_get("https://echo.free.beeceptor.com", { a: "1", b: "2" }, [["X-Test", "123"]]);
-      //   console.log(resp);
-      // }
-      // {
-      //   const resp = await api.tab_http_post_json(
-      //     "https://echo.free.beeceptor.com",
-      //     { hello: "world" },
-      //     [["X-Test", "123"]]
-      //   );
-      //   console.log(resp);
-      // }
-    } else if (true /* TODO(kuriko): 检测是否是应该 redirect 的页面 */) {
-      doRedirection();
+      return;
     }
+
+    doRedirection();
+    browser.runtime.openOptionsPage();
   });
 });

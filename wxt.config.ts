@@ -24,10 +24,11 @@ export default defineConfig({
         ],
       },
       permissions: [
-        "dom",
         "tabs",
         "scripting",
+        "alarms",
         "cookies",
+        "activeTab",
         "storage",
         "webRequest",
         "declarativeNetRequest",

@@ -132,22 +132,22 @@ function corsRulesBuilder(tabId: number, initialatorUrl: string): any[] {
 const SPOOF_KEY = "spoof_rules";
 export async function installSpoofRules(
   tabId: number,
-  url: string,
+  requestUrl: string,
   origin: string,
   referer: string,
 ) {
-  const rules = spoofRulesBuilder(tabId, url, origin, referer);
+  const rules = spoofRulesBuilder(tabId, requestUrl, origin, referer);
   debugPrint("Add spoof rules: ", rules);
   await rulesMgr.add(rules);
 }
 
 export async function uninstallSpoofRules(
   tabId: number,
-  url: string,
+  requestUrl: string,
   origin: string,
   referer: string,
 ) {
-  const rules = spoofRulesBuilder(tabId, url, origin, referer);
+  const rules = spoofRulesBuilder(tabId, requestUrl, origin, referer);
   debugPrint("Remove spoof rules: ", rules);
   await rulesMgr.remove(rules);
 }

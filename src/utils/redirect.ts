@@ -1,5 +1,5 @@
 export function doRedirection() {
-  chrome.tabs.query({ active: true, lastFocusedWindow: true }, (tabs) => {
+  browser.tabs.query({ active: true, lastFocusedWindow: true }, (tabs) => {
     const url = tabs[0].url ?? "";
 
     const providers = {
@@ -34,7 +34,7 @@ export function doRedirection() {
       const provider = providers[providerId as keyof typeof providers];
       const novelId = provider(url);
       if (novelId !== undefined) {
-        chrome.tabs.create({
+        browser.tabs.create({
           url: `https://n.novelia.cc/novel/${providerId}/${novelId}`,
           active: true,
         });

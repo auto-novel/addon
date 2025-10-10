@@ -1,20 +1,34 @@
-import { Persist } from "@/utils/persist";
-import { newError } from "./tools";
+import { Persist, RefCount } from "@/utils/persist";
+import { newError } from "@/utils/tools";
+import { DELAYED_TAB_CLOSE_TIME } from "@/utils/consts";
 
 type Tab = Browser.tabs.Tab;
 type TabId = number;
 
-type TabStatus = {
-  opened: boolean;
+type TabState = {
+  tabId: number;
+  refCount: number;
 };
 
-class TabResMgr {
-  private tabInfo: Persist<TabId> = new Persist("tabRes", {}, "session");
+export class TabResMgr {
+  private tabState: Persist<TabId, TabState> = new Persist({
+    tag: "tabRes",
+    key2String: (key: TabId) => key.toString(),
+  });
+
+  private onLoadPromises: Map<TabId, Promise<Tab>> = new Map();
 
   constructor() {}
 
   public waitAnyTab(tab: Tab): Promise<Tab> {
-    return new Promise((resolve, reject) => {
+    if (tab.status === "complete") return Promise.resolve(tab);
+    if (!tab.id) return Promise.reject("no tab id");
+
+    if (this.onLoadPromises.has(tab.id)) {
+      return this.onLoadPromises.get(tab.id)!;
+    }
+
+    const promise = new Promise<Tab>((resolve) => {
       const listener = (tabId: number, info: { status?: string }) => {
         if (tabId === tab.id && info.status === "complete") {
           clearTimeout(timeoutId);
@@ -24,11 +38,14 @@ class TabResMgr {
       };
       const timeoutId = setTimeout(() => {
         browser.tabs.onUpdated.removeListener(listener);
-        reject(tab);
+        resolve(tab);
       }, MAX_PAGE_LOAD_WAIT_TIME);
 
       browser.tabs.onUpdated.addListener(listener);
     });
+
+    this.onLoadPromises.set(tab.id, promise);
+    return promise;
   }
 
   async closeTab(tab: Tab): Promise<void> {
@@ -36,13 +53,69 @@ class TabResMgr {
     await browser.tabs.remove(tab.id);
   }
 
+  static genAlarmName(tabId?: number) {
+    const prefix = "delayedCloseTab-";
+    if (tabId === undefined) return prefix;
+    return `${prefix}${tabId}`;
+  }
+
+  async findAndCloseTab(tabId: number) {
+    const tabState = await this.tabState.get(tabId);
+    if (!tabState) return;
+    await Promise.all([browser.tabs.remove(tabId), this.tabState.del(tabId)]);
+  }
+
+  private async acquireTab(tabId: number) {
+    const tabState = await this.tabState.get(tabId);
+    if (tabState != null) {
+      browser.alarms.clear(TabResMgr.genAlarmName(tabId));
+      tabState.refCount += 1;
+      await this.tabState.set(tabId, tabState);
+    }
+  }
+
+  async releaseTab(tabId: number) {
+    const tabState = await this.tabState.get(tabId);
+    if (tabState == null) return;
+
+    // 查询是否是由插件创建的标签页
+    tabState.refCount -= 1;
+    await this.tabState.set(tabId, tabState);
+    if (tabState.refCount > 0) return;
+
+    // 开始延时关闭
+    await browser.alarms.create(TabResMgr.genAlarmName(tabId), {
+      delayInMinutes: DELAYED_TAB_CLOSE_TIME / 60000,
+    });
+  }
+
   async findOrCreateTab(url: string): Promise<Tab> {
+    console.info(`[TabResMgr] findOrCreateTab: ${url}`);
+    const normalizedUrl = new URL(url);
+    url = normalizedUrl.toString();
+
     const tabs = await browser.tabs.query({ url });
     // FIXME(kuriko): 如果用户此时手动关闭了标签页怎么办？
-    const tab = tabs.length > 0 ? tabs[0] : await browser.tabs.create({ url });
+    let tab;
+    if (tabs.length > 0) {
+      tab = tabs[0];
+    } else {
+      tab = await browser.tabs.create({
+        url,
+        active: false,
+      });
+      // 对于 Create 出来的标签页，由插件负责关闭。
+      if (!tab.id) throw newError(`Tab has no id: ${url}`);
+      this.tabState.set(tab.id, {
+        tabId: tab.id,
+        refCount: 0,
+      });
+    }
     await this.waitAnyTab(tab);
-    if (!tab.id) throw newError(`Tab has no id: ${url}`);
-    this.tabInfo.set(tab.id.toString(), tab.id);
+
+    if (tab.id == null) throw newError(`Tab has no id: ${tab}`);
+    await this.acquireTab(tab.id);
+
     return tab;
   }
 }
@@ -51,12 +124,13 @@ export const tabResMgr = new TabResMgr();
 
 class RulesManager {
   // NOTE(kuriko): all RW is inside worker thread, so it's atomic
-  ruleRefCount: Persist<number> = new Persist("dnrRuleRefCount", 0, "session");
+  ruleRefCount: RefCount = new RefCount("dnrRuleRefCount");
 
   async add(rules: Browser.declarativeNetRequest.Rule[]) {
     try {
       // NOTE(kuriko): JSON.stringify is stable for arrays
-      const cnt = await this.ruleRefCount.get(JSON.stringify(rules));
+      const key = JSON.stringify(rules);
+      await this.ruleRefCount.inc(key);
       await browser.declarativeNetRequest.updateDynamicRules({
         addRules: rules,
         removeRuleIds: rules.map((rule) => rule.id),
@@ -70,15 +144,17 @@ class RulesManager {
 
   async remove(rules: Browser.declarativeNetRequest.Rule[]) {
     try {
-      await browser.declarativeNetRequest.updateDynamicRules({
-        removeRuleIds: rules.map((rule) => rule.id),
-      });
+      const key = JSON.stringify(rules);
+      const cnt = await this.ruleRefCount.dec(key);
+      if (cnt <= 0) {
+        await browser.declarativeNetRequest.updateDynamicRules({
+          removeRuleIds: rules.map((rule) => rule.id),
+        });
+      }
     } catch (e) {
       const msg = `Failed to uninstall rules, ignoring: ${e}`;
       debugPrint.error(msg);
       throw newError(msg);
-    } finally {
-      // await storage.removeItem(`session:${key}`);
     }
   }
 
@@ -91,7 +167,7 @@ class RulesManager {
       });
     });
     // Clear all persisted data
-    // TODO(kuriko)
+    this.ruleRefCount.clear();
   }
 }
 

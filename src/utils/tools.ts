@@ -29,46 +29,6 @@ export async function waitOrTimeout<T>(
   ]);
 }
 
-export async function response2SerResp(
-  response: Response,
-): Promise<SerializableResponse> {
-  const headers: [string, string][] = [];
-  for (const [key, value] of response.headers.entries()) {
-    headers.push([key, value]);
-  }
-
-  const bodyText = await response.text();
-
-  const serializableResponse = {
-    body: bodyText,
-    status: response.status,
-    statusText: response.statusText,
-    ok: response.ok,
-    headers,
-    redirected: response.redirected,
-    url: response.url,
-    type: response.type,
-  };
-  return serializableResponse;
-}
-
-export function serReq2RequestInfo(input: SerializableRequest | string) {
-  let final_input: RequestInfo;
-  switch (typeof input) {
-    case "string": {
-      final_input = input;
-      break;
-    }
-    case "object": {
-      final_input = serializeRequest(input as SerializableRequest);
-      break;
-    }
-    default:
-      throw new Error("Invalid input type for http.raw");
-  }
-  return final_input;
-}
-
 type BrowserRemoteExecutionOptions<T, A extends any[]> = {
   target: Browser.scripting.InjectionTarget;
   func: (...args: A) => T | Promise<T>;
@@ -116,4 +76,12 @@ debugPrint.warn = (...args: any[]) =>
 
 export function newError(msg: string) {
   return new Error(`[AutoNovel.addon] ${msg}`);
+}
+
+export function b64EncodeUnicode(str: string): string {
+  return btoa(
+    encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (match, p1) => {
+      return String.fromCharCode(parseInt(p1, 16));
+    }),
+  );
 }

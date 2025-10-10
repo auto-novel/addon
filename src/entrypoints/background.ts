@@ -34,18 +34,14 @@ export default defineBackground(() => {
       case MessageType.Request: {
         const msg = message as MessageRequest;
 
-        if (
-          sender.id === undefined ||
-          sender.url === undefined ||
-          sender.tab === undefined ||
-          sender.tab?.id == undefined
-        ) {
+        debugPrint(sender);
+
+        if (sender.url === undefined || sender.tab?.id == undefined) {
           throw newError(`Invalid sender: ${sender}`);
         }
 
         const env: EnvType = {
           sender: {
-            id: sender.id,
             url: sender.url,
             tabId: sender.tab?.id,
             origin: sender.origin,

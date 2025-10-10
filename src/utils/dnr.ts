@@ -36,7 +36,7 @@ function spoofRulesBuilder(
         ],
       },
       condition: {
-        tabId,
+        tabIds: [tabId],
         urlFilter: `|${filter}/*`,
         resourceTypes: ["xmlhttprequest", "csp_report", "main_frame"],
       },
@@ -89,7 +89,7 @@ function corsRulesBuilder(tabId: number, initialatorUrl: string): any[] {
         ],
       },
       condition: {
-        tabId,
+        tabIds: [tabId],
         requestMethods: ["get", "post", "put", "delete", "head", "options"],
       },
     },
@@ -109,7 +109,7 @@ function corsRulesBuilder(tabId: number, initialatorUrl: string): any[] {
         ],
       },
       condition: {
-        tabId,
+        tabIds: [tabId],
         resourceTypes: ["main_frame"],
       },
     },
@@ -121,7 +121,7 @@ function corsRulesBuilder(tabId: number, initialatorUrl: string): any[] {
         responseHeaders: [{ operation: "remove", header: "x-frame-options" }],
       },
       condition: {
-        tabId,
+        tabIds: [tabId],
         resourceTypes: ["sub_frame"],
       },
     },

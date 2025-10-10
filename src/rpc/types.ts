@@ -1,7 +1,6 @@
 // ======================== types =================================
 export type EnvType = {
   sender: {
-    id: string;
     tabId: number;
     origin?: string;
     url: string;
@@ -62,7 +61,7 @@ export interface SerializableRequest {
   integrity?: string;
 }
 
-export function serializeRequest(
+export function deserializeRequest(
   req: SerializableRequest | string,
 ): Request | string {
   if (typeof req === "string") {
@@ -85,7 +84,7 @@ export function serializeRequest(
   return new Request(req.url, init);
 }
 
-export async function deserializeRequest(
+export async function serializeRequest(
   request: string | Request,
 ): Promise<SerializableRequest | string> {
   if (typeof request === "string") {

@@ -129,9 +129,9 @@ class RulesManager {
   async add(rules: Browser.declarativeNetRequest.Rule[]) {
     try {
       // NOTE(kuriko): JSON.stringify is stable for arrays
-      const key = JSON.stringify(rules);
+      const key = b64EncodeUnicode(JSON.stringify(rules));
       await this.ruleRefCount.inc(key);
-      await browser.declarativeNetRequest.updateDynamicRules({
+      await browser.declarativeNetRequest.updateSessionRules({
         addRules: rules,
         removeRuleIds: rules.map((rule) => rule.id),
       });
@@ -144,10 +144,10 @@ class RulesManager {
 
   async remove(rules: Browser.declarativeNetRequest.Rule[]) {
     try {
-      const key = JSON.stringify(rules);
+      const key = b64EncodeUnicode(JSON.stringify(rules));
       const cnt = await this.ruleRefCount.dec(key);
       if (cnt <= 0) {
-        await browser.declarativeNetRequest.updateDynamicRules({
+        await browser.declarativeNetRequest.updateSessionRules({
           removeRuleIds: rules.map((rule) => rule.id),
         });
       }
@@ -162,7 +162,7 @@ class RulesManager {
     // Clear all rules
     browser.declarativeNetRequest.getDynamicRules((rules) => {
       console.info("[AutoNovel] Cleaning up old rules: ", rules);
-      browser.declarativeNetRequest.updateDynamicRules({
+      browser.declarativeNetRequest.updateSessionRules({
         removeRuleIds: rules.map((r) => r.id),
       });
     });

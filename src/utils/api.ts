@@ -1,4 +1,8 @@
-import { SerializableRequest, SerializableResponse } from "@/rpc/types";
+import {
+  SerializableRequest,
+  SerializableResponse,
+  serializeResponse,
+} from "@/rpc/types";
 import { browserRemoteExecution, extractUrl } from "@/utils/tools";
 import { tabResMgr } from "@/utils/resource";
 import setCookie from "set-cookie-parser";
@@ -11,7 +15,7 @@ export async function http_fetch(
   requestInit?: RequestInit,
 ): Promise<SerializableResponse> {
   const resp = await fetch(input, requestInit);
-  return response2SerResp(resp);
+  return serializeResponse(resp);
 }
 
 export async function tab_dom_querySelectorAll(
@@ -38,7 +42,8 @@ export async function tab_http_fetch(
   requestInit?: RequestInit,
 ): Promise<SerializableResponse> {
   const tab = await tabResMgr.findOrCreateTab(tabUrl);
-  console.log(tab.id);
+
+  await local_install_bypass(tab.id!, extractUrl(input));
 
   // NOTE(kuriko): 在 tab 上面直接执行 fetch，一般不用考虑 CORS bypass 问题。
   const respSer = await browserRemoteExecution({
@@ -117,6 +122,7 @@ export async function tab_http_fetch(
     args: [input, requestInit],
   });
   await tabResMgr.releaseTab(tab.id!);
+  await local_uninstall_bypass(tab.id!, extractUrl(input));
   return respSer;
 }
 

@@ -1,5 +1,5 @@
 import * as Api from "@/utils/api";
-import { EnvType, type ClientCmd } from "@/rpc/types";
+import { deserializeRequest, EnvType, type ClientCmd } from "@/rpc/types";
 
 export async function dispatchCommand(
   command: keyof ClientCmd,
@@ -33,7 +33,7 @@ const METHODS: ClientCmd = {
   ) => await Api.local_uninstall_bypass(tabId, requestUrl, origin, referer),
 
   "http.fetch": async ({ input, requestInit }) => {
-    const final_input = serReq2RequestInfo(input);
+    const final_input = await deserializeRequest(input);
     return await Api.http_fetch(final_input, requestInit);
   },
 

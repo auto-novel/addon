@@ -1,5 +1,10 @@
 import { IS_DEBUG } from "@/utils/consts";
-import { MsgCrawler, MsgResponse, MsgType, type Message } from "@/rpc/msg";
+import {
+  MessageRequest,
+  MessageResponse,
+  MessageType,
+  type Message,
+} from "@/rpc/types";
 import { doRedirection } from "@/utils/redirect";
 import { debugPrint } from "@/utils/tools";
 import { alarmLisener } from "@/utils/alarm";
@@ -22,12 +27,12 @@ export default defineBackground(() => {
     }
 
     switch (message.type) {
-      case MsgType.Ping: {
+      case MessageType.Ping: {
         sendResponse("pong");
         break;
       }
-      case MsgType.CrawlerReq: {
-        const msg = message as MsgCrawler;
+      case MessageType.Request: {
+        const msg = message as MessageRequest;
 
         if (
           sender.id === undefined ||
@@ -52,15 +57,15 @@ export default defineBackground(() => {
             debugPrint("[AutoNovel] Crawler Result: ", result);
 
             const resp = {
-              type: MsgType.Response,
+              type: MessageType.Response,
               id: msg.id,
               payload: { success: true, result },
             };
             return sendResponse(resp);
           })
           .catch((error) => {
-            const resp: MsgResponse = {
-              type: MsgType.Response,
+            const resp: MessageResponse = {
+              type: MessageType.Response,
               id: msg.id,
               payload: { success: false, error: error.message },
             };

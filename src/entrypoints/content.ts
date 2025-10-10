@@ -1,5 +1,5 @@
 import { browserInfo, IS_DEBUG } from "@/utils/consts";
-import { MsgType } from "@/rpc/msg";
+import { MessageType } from "@/rpc/types";
 
 /*
   Here we use externally_connectable in manifest.json to allow the web page to connect to the extension directly.

@@ -1,8 +1,8 @@
 import * as Api from "@/utils/api";
-import { EnvType, type ClientMethods } from "@/rpc/types";
+import { EnvType, type ClientCmd } from "@/rpc/types";
 
 export async function dispatchCommand(
-  command: keyof ClientMethods,
+  command: keyof ClientCmd,
   params: any,
   env: EnvType,
 ) {
@@ -11,7 +11,7 @@ export async function dispatchCommand(
   return await method(params, env);
 }
 
-const METHODS: ClientMethods = {
+const METHODS: ClientCmd = {
   "base.ping": async () => await "pong",
   "base.info": async () => {
     return await {

@@ -1,3 +1,4 @@
+// ======================== types =================================
 export type EnvType = {
   sender: {
     id: string;
@@ -18,7 +19,7 @@ export type SerializableResponse = {
   type: ResponseType;
 };
 
-export async function Response2SerResp(
+export async function serializeResponse(
   response: Response,
 ): Promise<SerializableResponse> {
   const headers: [string, string][] = Array.from(response.headers.entries());
@@ -37,7 +38,7 @@ export async function Response2SerResp(
   return serializableResponse;
 }
 
-export function SerResp2Response(serResp: SerializableResponse): Response {
+export function deserializeResponse(serResp: SerializableResponse): Response {
   const init: ResponseInit = {
     status: serResp.status,
     statusText: serResp.statusText,
@@ -60,7 +61,31 @@ export interface SerializableRequest {
   referrer?: string;
   integrity?: string;
 }
-export async function Request2SerReq(
+
+export function serializeRequest(
+  req: SerializableRequest | string,
+): Request | string {
+  if (typeof req === "string") {
+    return req;
+  }
+
+  console.debug("deserializeRequest: ", req);
+  const init: RequestInit = {
+    method: req.method,
+    headers: new Headers(req.headers),
+    body: req.body,
+    mode: req.mode,
+    credentials: req.credentials,
+    cache: req.cache,
+    redirect: req.redirect,
+    referrer: req.referrer,
+    integrity: req.integrity,
+  };
+
+  return new Request(req.url, init);
+}
+
+export async function deserializeRequest(
   request: string | Request,
 ): Promise<SerializableRequest | string> {
   if (typeof request === "string") {
@@ -84,35 +109,13 @@ export async function Request2SerReq(
   };
   return req;
 }
-export function SerReq2Request(
-  req: SerializableRequest | string,
-): Request | string {
-  if (typeof req === "string") {
-    return req;
-  }
-
-  debugPrint("deserializeRequest: ", req);
-  const init: RequestInit = {
-    method: req.method,
-    headers: new Headers(req.headers),
-    body: req.body,
-    mode: req.mode,
-    credentials: req.credentials,
-    cache: req.cache,
-    redirect: req.redirect,
-    referrer: req.referrer,
-    integrity: req.integrity,
-  };
-
-  return new Request(req.url, init);
-}
 
 export type InfoResult = {
   version: string; // extension version
   homepage_url: string;
 };
 
-export type ClientMethods = {
+export type ClientCmd = {
   "base.ping"(): Promise<string>;
   "base.info"(): Promise<InfoResult>;
 
@@ -159,10 +162,7 @@ export type ClientMethods = {
     env: EnvType,
   ): Promise<string[]>;
 
-  "cookies.get"(
-    params: { url: string },
-    env: EnvType,
-  ): Promise<Browser.cookies.Cookie[]>;
+  "cookies.get"(params: { url: string }, env: EnvType): Promise<any[]>;
 
   "cookies.getStr"(params: { url: string }, env: EnvType): Promise<string>;
 
@@ -171,3 +171,40 @@ export type ClientMethods = {
     env: EnvType,
   ): Promise<void>;
 };
+
+// ================================== msg types ===============================
+export enum MessageType {
+  Ping = "AUTO_NOVEL_CRAWLER_PING",
+  Request = "AUTO_NOVEL_CRAWLER_REQUEST",
+  Response = "AUTO_NOVEL_CRAWLER_RESPONSE",
+}
+
+export interface MessagePing {
+  type: typeof MessageType.Ping;
+  id?: string;
+}
+
+export type RequestPayload = {
+  cmd: keyof ClientCmd;
+  params?: any;
+};
+
+export interface MessageRequest {
+  type: typeof MessageType.Request;
+  id?: string;
+  payload: RequestPayload;
+}
+
+export interface MessageResponse {
+  type: typeof MessageType.Response;
+  id?: string;
+  payload: ResponsePayload;
+}
+
+export type ResponsePayload = {
+  success: boolean;
+  result?: any;
+  error?: string;
+};
+
+export type Message = MessagePing | MessageRequest | MessageResponse;

@@ -1,4 +1,4 @@
-import { Response2SerResp, type SerializableRequest, type SerializableResponse } from "@rpc/client/client.types";
+import { Response2SerResp, type SerializableRequest, type SerializableResponse } from "@/rpc/client/client.types";
 import { ChromeRemoteExecution, SerReq2RequestInfo } from "./tools";
 import setCookie from "set-cookie-parser";
 import { browserInfo } from "./consts";

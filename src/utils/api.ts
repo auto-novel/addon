@@ -1,7 +1,7 @@
-import { Debugger } from "@utils/debugger";
-import { pack_response, WaitOrTimeout } from "@utils/tools";
-import { MAX_PAGE_LOAD_WAIT_TIME } from "@utils/consts";
-import type { SerializableRequest, SerializableResponse } from "@rpc/client/client.types";
+import { Debugger } from "@/utils/debugger";
+import { pack_response, WaitOrTimeout } from "@/utils/tools";
+import { MAX_PAGE_LOAD_WAIT_TIME } from "@/utils/consts";
+import type { SerializableRequest, SerializableResponse } from "@/rpc/client/client.types";
 
 type Tab = chrome.tabs.Tab;
 

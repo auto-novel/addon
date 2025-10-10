@@ -1,14 +1,22 @@
 // import { WebSocket } from "ws";
-import { JSONRPCClient, JSONRPCServer, JSONRPCServerAndClient, type TypedJSONRPCServerAndClient } from "json-rpc-2.0";
-import { WS_ADDRESS } from "@utils/consts";
-import type { Api } from "@/utils/api";
-import { ServerAbility } from "@rpc/server/api";
-import { ClientAbility } from "@rpc/client/api";
-import type { ServerMethods } from "@rpc/server/server.types";
-import type { ClientMethods } from "@rpc/client/client.types";
-import type { CrawlerJob } from "./job";
+import {
+  JSONRPCClient,
+  JSONRPCServer,
+  JSONRPCServerAndClient,
+  type TypedJSONRPCServerAndClient,
+} from 'json-rpc-2.0';
+import { WS_ADDRESS } from '@/utils/consts';
+import type { Api } from '@/utils/api';
+import { ServerAbility } from '@/rpc/server/api';
+import { ClientAbility } from '@/rpc/client/api';
+import type { ServerMethods } from '@/rpc/server/server.types';
+import type { ClientMethods } from '@/rpc/client/client.types';
+import type { CrawlerJob } from './job';
 
-export type RPCCSType = TypedJSONRPCServerAndClient<ClientMethods, ServerMethods>;
+export type RPCCSType = TypedJSONRPCServerAndClient<
+  ClientMethods,
+  ServerMethods
+>;
 export type WorkerId = string;
 
 /*
@@ -42,11 +50,11 @@ export class ClientSideCrawler {
 
     this.connectionPromise = new Promise((resolve, reject) => {
       this.ws.onopen = () => {
-        console.debug("WebSocket connection established");
+        console.debug('WebSocket connection established');
         resolve();
       };
       this.ws.onerror = (event) => {
-        console.error("WebSocket error observed:", event);
+        console.error('WebSocket error observed:', event);
         const error = new Error(`WebSocket error observed: ${event}`);
         this.rpc.rejectAllPendingRequests(error.message);
         reject(error);
@@ -54,8 +62,10 @@ export class ClientSideCrawler {
     });
 
     this.ws.onclose = (event) => {
-      console.debug("WebSocket connection closed.");
-      this.rpc.rejectAllPendingRequests(`WebSocket connection closed: ${event.reason}`);
+      console.debug('WebSocket connection closed.');
+      this.rpc.rejectAllPendingRequests(
+        `WebSocket connection closed: ${event.reason}`
+      );
     };
 
     this.ws.onmessage = (event) => {
@@ -64,7 +74,7 @@ export class ClientSideCrawler {
 
     this.rpc = new JSONRPCServerAndClient(
       new JSONRPCServer(),
-      new JSONRPCClient((request) => {
+      new JSONRPCClient((request: any) => {
         try {
           this.ws.send(JSON.stringify(request));
           return Promise.resolve();
@@ -96,7 +106,7 @@ export class ClientSideCrawler {
   // }
 
   public async quit() {
-    await this.rpc.rejectAllPendingRequests("Client is quitting");
+    await this.rpc.rejectAllPendingRequests('Client is quitting');
     await this.api.close();
     await this.ws.close();
   }

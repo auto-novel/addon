@@ -1,5 +1,5 @@
-import type { ClientSideCrawler, RPCCSType, WorkerId } from "@rpc/api";
-import type { Api } from "@utils/api";
+import type { ClientSideCrawler, RPCCSType, WorkerId } from "@/rpc/api";
+import type { Api } from "@/utils/api";
 import type { EndpointRegisterResult, JobSubmitResult } from "./server.types";
 
 export class ServerAbility {

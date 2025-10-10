@@ -1,26 +1,33 @@
-import { Api } from "@utils/api";
-import { type ClientMethods, type JobNewResult, type JobQuitResult } from "./client/client.types";
-import { SerReq2RequestInfo } from "@utils/tools";
-import type { EnvType } from "@/worker";
+import { Api } from '@/utils/api';
+import {
+  type ClientMethods,
+  type JobNewResult,
+  type JobQuitResult,
+} from './client/client.types';
+import { SerReq2RequestInfo } from '@/utils/tools';
 
-type Tab = chrome.tabs.Tab;
+export type EnvType = {
+  sender: Browser.runtime.MessageSender;
+  tab: Browser.tabs.Tab;
+  job_id: string;
+};
 
 export class WebCrawler {
   api: Api;
   env: EnvType;
 
-  private constructor(env: EnvType, url?: string, tab?: Tab) {
+  private constructor(env: EnvType, url?: string, tab?: Browser.tabs.Tab) {
     this.env = env;
     if (url) {
       this.api = Api.fromURL(url);
     } else if (tab) {
       this.api = Api.fromTab(tab);
     } else {
-      throw new Error("Either url or tab must be provided.");
+      throw new Error('Either url or tab must be provided.');
     }
   }
 
-  public static fromTab(env: EnvType, tab: chrome.tabs.Tab) {
+  public static fromTab(env: EnvType, tab: Browser.tabs.Tab) {
     return new WebCrawler(env, undefined, tab);
   }
 
@@ -28,7 +35,11 @@ export class WebCrawler {
     return new WebCrawler(env, url, undefined);
   }
 
-  public applyCommand = async (command: keyof ClientMethods, params: any, env: EnvType) => {
+  public applyCommand = async (
+    command: keyof ClientMethods,
+    params: any,
+    env: EnvType
+  ) => {
     const method = this.methods[command];
     if (!method) throw new Error(`Unknown command: ${command}`);
     params = { ...params, ...env };
@@ -36,40 +47,51 @@ export class WebCrawler {
   };
 
   public methods: ClientMethods = {
-    "base.ping": async () => await "pong",
-    "base.info": async () => {
+    'base.ping': async () => await 'pong',
+    'base.info': async () => {
       return await {
-        version: chrome.runtime.getManifest().version,
-        homepage_url: chrome.runtime.getManifest().homepage_url ?? "https://github.com/auto-novel/addon"
+        version: browser.runtime.getManifest().version,
+        homepage_url:
+          browser.runtime.getManifest().homepage_url ??
+          'https://github.com/auto-novel/addon',
       };
     },
 
-    "local.cookies.setFromResponse": async ({ response }) => await this.api.cookies_set_from_response(response),
-    "local.bypass.enable": async ({ origin, referer, url }) => await this.api.enable_local_bypass(url, origin, referer),
-    "local.bypass.disable": async ({ id, url }) => await this.api.disable_local_bypass(id, url),
+    'local.cookies.setFromResponse': async ({ response }) =>
+      await this.api.cookies_set_from_response(response),
+    'local.bypass.enable': async ({ origin, referer, url }) =>
+      await this.api.enable_local_bypass(url, origin, referer),
+    'local.bypass.disable': async ({ id, url }) =>
+      await this.api.disable_local_bypass(id, url),
 
-    "http.fetch": async ({ input, requestInit }) => {
+    'http.fetch': async ({ input, requestInit }) => {
       const final_input = SerReq2RequestInfo(input);
       return await this.api.http_fetch(final_input, requestInit);
     },
-    "http.get": async ({ url, params, headers }) => await this.api.http_get(url, params, headers),
-    "http.postJson": async ({ url, data, headers }) => await this.api.http_post_json(url, data, headers),
+    'http.get': async ({ url, params, headers }) =>
+      await this.api.http_get(url, params, headers),
+    'http.postJson': async ({ url, data, headers }) =>
+      await this.api.http_post_json(url, data, headers),
 
-    "tab.switchTo": async ({ url }) => await this.api.tab_swith_to(url),
-    "tab.http.fetch": async ({ input, requestInit }) => {
+    'tab.switchTo': async ({ url }) => await this.api.tab_swith_to(url),
+    'tab.http.fetch': async ({ input, requestInit }) => {
       return await this.api.tab_http_fetch(input, requestInit);
     },
-    "tab.http.get": async ({ url, params }) => await this.api.tab_http_get(url, params),
-    "tab.http.postJson": async ({ url, data }) => await this.api.tab_http_post_json(url, data),
-    "tab.dom.querySelectorAll": async ({ selector }) => await this.api.tab_dom_querySelectorAll(selector),
+    'tab.http.get': async ({ url, params }) =>
+      await this.api.tab_http_get(url, params),
+    'tab.http.postJson': async ({ url, data }) =>
+      await this.api.tab_http_post_json(url, data),
+    'tab.dom.querySelectorAll': async ({ selector }) =>
+      await this.api.tab_dom_querySelectorAll(selector),
 
-    "cookies.get": async ({ url }) => await this.api.cookies_get(url),
-    "cookies.getStr": async ({ url }) => await this.api.cookies_get_str(url),
+    'cookies.get': async ({ url }) => await this.api.cookies_get(url),
+    'cookies.getStr': async ({ url }) => await this.api.cookies_get_str(url),
 
-    "dom.querySelectorAll": async ({ selector }) => await this.api.dom_query_selector_all(selector),
+    'dom.querySelectorAll': async ({ selector }) =>
+      await this.api.dom_query_selector_all(selector),
 
-    "job.new": async () => await this.job_new(),
-    "job.quit": async () => await this.job_quit()
+    'job.new': async () => await this.job_new(),
+    'job.quit': async () => await this.job_quit(),
   };
 
   public async job_new(): Promise<JobNewResult> {
@@ -78,6 +100,6 @@ export class WebCrawler {
 
   public async job_quit(): Promise<JobQuitResult> {
     await this.api.close();
-    return { status: "completed" };
+    return { status: 'completed' };
   }
 }

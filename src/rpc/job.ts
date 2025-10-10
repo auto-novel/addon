@@ -1,4 +1,4 @@
-import type { Api } from "@utils/api";
+import type { Api } from "@/utils/api";
 
 export class CrawlerJob {
   url: string;

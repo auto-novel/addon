@@ -1,4 +1,4 @@
-import type { ClientMethods } from "@rpc/client/client.types";
+import type { ClientMethods } from "@/rpc/client/client.types";
 
 export enum MSG_TYPE {
   CRAWLER_REQ = "AUTO_NOVEL_CRAWLER_REQUEST",

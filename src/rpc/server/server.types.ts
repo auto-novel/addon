@@ -1,5 +1,5 @@
-import type { WorkerId } from "@rpc/api";
-// import type { JobToken } from "@rpc/job";
+import type { WorkerId } from "@/rpc/api";
+// import type { JobToken } from "@/rpc/job";
 
 export type EchoParams = {
   message: string;

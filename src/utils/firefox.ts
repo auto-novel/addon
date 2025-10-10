@@ -1,4 +1,4 @@
-import { sessionDel, sessionGet, sessionStore } from "@utils/storage";
+import { sessionDel, sessionGet, sessionStore } from "@/utils/storage";
 import { hashStringToInt } from "./tools";
 
 // chrome.declarativeNetRequest.HeaderOperation

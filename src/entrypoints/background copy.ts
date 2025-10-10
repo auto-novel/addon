@@ -7,18 +7,45 @@ import {
   type MsgResponse,
 } from "@/rpc/msg";
 import { doRedirection } from "@/utils/redirect";
-import { debugPrint } from "@/utils/tools";
 
 export default defineBackground(() => {
+  const crawlerInstances: Map<string, WebCrawler> = new Map();
+
+  function getOrCreateCrawler(
+    payload: CrawlerCommand,
+    env: EnvType,
+  ): WebCrawler {
+    // Get or Create a job id.
+    const job_id = env.job_id;
+
+    const crawler =
+      crawlerInstances.get(job_id) ??
+      (() => {
+        let newCrawler;
+        if (payload.base_url == "local") {
+          newCrawler = WebCrawler.fromTab(env, env.tab);
+        } else {
+          newCrawler = WebCrawler.fromURL(env, payload.base_url);
+        }
+        crawlerInstances.set(job_id, newCrawler);
+        console.log(
+          `[AutoNovel] New crawler instance created for id ${job_id}.`,
+        );
+        return newCrawler;
+      })();
+
+    return crawler;
+  }
+
   const messageFn = (
     message: Message,
     sender: Browser.runtime.MessageSender,
     sendResponse: (response: any) => void,
   ) => {
     if (IS_DEBUG) {
-      debugPrint("[AutoNovel] Received message: ", message, sender);
+      console.info("[AutoNovel] Received message: ", message, sender);
     }
-
+    if (!isMessagingAllowed(sender.url ?? sender.origin ?? "")) return;
     switch (message.type) {
       case MsgType.Ping: {
         sendResponse("pong");
@@ -26,7 +53,20 @@ export default defineBackground(() => {
       }
       case MsgType.CrawlerReq: {
         const msg = message as MsgCrawler;
+        const payload = msg.payload ?? {};
+        if (!payload.base_url) payload.base_url = payload.params?.url;
+
+        payload.single = payload.single ?? true;
         msg.id = msg.id ?? crypto.randomUUID();
+
+        const job_id = payload.job_id ?? crypto.randomUUID();
+        const env: EnvType = {
+          job_id,
+          tab: sender.tab!,
+          sender,
+        };
+
+        const crawler = getOrCreateCrawler(payload, env);
 
         crawler
           .applyCommand(payload.cmd, payload.params, env)

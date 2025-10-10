@@ -9,7 +9,9 @@ export type SerializableResponse = {
   type: ResponseType;
 };
 
-export async function Response2SerResp(response: Response): Promise<SerializableResponse> {
+export async function Response2SerResp(
+  response: Response,
+): Promise<SerializableResponse> {
   const headers: [string, string][] = Array.from(response.headers.entries());
   const bodyText = await response.text();
 
@@ -21,7 +23,7 @@ export async function Response2SerResp(response: Response): Promise<Serializable
     headers: headers,
     redirected: response.redirected,
     url: response.url,
-    type: response.type
+    type: response.type,
   };
   return serializableResponse;
 }
@@ -39,7 +41,9 @@ export interface SerializableRequest {
   referrer?: string;
   integrity?: string;
 }
-export async function serializeRequest(request: RequestInfo): Promise<SerializableRequest | string> {
+export async function serializeRequest(
+  request: RequestInfo,
+): Promise<SerializableRequest | string> {
   if (typeof request === "string") {
     return request;
   }
@@ -57,7 +61,7 @@ export async function serializeRequest(request: RequestInfo): Promise<Serializab
     cache: request.cache,
     redirect: request.redirect,
     referrer: request.referrer,
-    integrity: request.integrity
+    integrity: request.integrity,
   };
   return req;
 }
@@ -76,7 +80,7 @@ export function deserializeRequest(req: SerializableRequest): RequestInfo {
     cache: req.cache,
     redirect: req.redirect,
     referrer: req.referrer,
-    integrity: req.integrity
+    integrity: req.integrity,
   };
 
   return new Request(req.url, init);
@@ -149,11 +153,6 @@ export type JobQuitResult = {
   reason?: string;
 };
 
-// export type CtlQuitParams = {
-//   worker_id: WorkerId;
-// };
-// export type CtrlQuitResult = void;
-
 export type BypassEnableParams = {
   url: string;
   origin?: string;
@@ -165,30 +164,22 @@ export type ClientMethods = {
   "base.ping"(): Promise<string>;
   "base.info"(): Promise<InfoResult>;
 
-  "local.cookies.setFromResponse"(params: { response: SerializableResponse }): Promise<void>;
-
-  "local.bypass.enable"(params: BypassEnableParams): Promise<BypassEnableResult>;
+  "local.bypass.enable"(
+    params: BypassEnableParams,
+  ): Promise<BypassEnableResult>;
   "local.bypass.disable"(params: { id: string; url: string }): Promise<void>;
 
   "http.fetch"(params: HttpFetchParams): Promise<HttpFetchResult>;
-  "http.get"(params: HttpGetParams): Promise<HttpGetResult>;
-  "http.postJson"(params: HttpPostJsonParams): Promise<HttpPostJsonResult>;
 
   "tab.switchTo"(params: TabSwitchToParams): Promise<TabSwitchToResult>;
   "tab.http.fetch"(params: TabHttpFetchParams): Promise<TabHttpFetchResult>;
-  "tab.http.get"(params: TabHttpGetParams): Promise<TabHttpGetResult>;
-  "tab.http.postJson"(params: TabHttpPostJsonParams): Promise<TabHttpPostJsonResult>;
-  "tab.dom.querySelectorAll"(params: DomQuerySelectorAllParams): Promise<DomQuerySelectorAllResult>;
+  "tab.dom.querySelectorAll"(
+    params: DomQuerySelectorAllParams,
+  ): Promise<DomQuerySelectorAllResult>;
 
   "cookies.get"(params: CookiesGetParams): Promise<CookiesGetResult>;
   "cookies.getStr"(params: { url: string }): Promise<string>;
-
-  "dom.querySelectorAll"(params: DomQuerySelectorAllParams): Promise<DomQuerySelectorAllResult>;
-
-  "job.new"(params: JobNewParams): Promise<JobNewResult>;
-  "job.quit"(params: JobQuitParams): Promise<JobQuitResult>;
-
-  // NOTE(kuriko): 基于同一个 ws 连接进行多路复用可能会更优雅一些，但是实现起来比较麻烦，
-  //  暂时按照每个爬虫任务一条 ws 连接来做。
-  // "ctl.quit"(params: CtlQuitParams): Promise<CtrlQuitResult>;
+  "cookies.setFromResponse"(params: {
+    response: SerializableResponse;
+  }): Promise<void>;
 };

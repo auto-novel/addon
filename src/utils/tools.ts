@@ -1,10 +1,17 @@
-import { deserializeRequest, type SerializableRequest, type SerializableResponse } from "@/rpc/client/client.types";
+import {
+  deserializeRequest,
+  type SerializableRequest,
+  type SerializableResponse,
+} from "@/rpc/types";
 
 export function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export async function WaitOrTimeout<T>(task: Promise<T>, timeout: number): Promise<T> {
+export async function waitOrTimeout<T>(
+  task: Promise<T>,
+  timeout: number,
+): Promise<T> {
   const ctl = new AbortController();
   let ret: T | null = null;
   return await Promise.race([
@@ -18,11 +25,13 @@ export async function WaitOrTimeout<T>(task: Promise<T>, timeout: number): Promi
         return ret as T;
       }
       return Promise.reject("Timeout");
-    })
+    }),
   ]);
 }
 
-export async function pack_response(response: Response): Promise<SerializableResponse> {
+export async function response2SerResp(
+  response: Response,
+): Promise<SerializableResponse> {
   const headers: [string, string][] = [];
   for (const [key, value] of response.headers.entries()) {
     headers.push([key, value]);
@@ -38,12 +47,12 @@ export async function pack_response(response: Response): Promise<SerializableRes
     headers,
     redirected: response.redirected,
     url: response.url,
-    type: response.type
+    type: response.type,
   };
   return serializableResponse;
 }
 
-export function SerReq2RequestInfo(input: SerializableRequest | string) {
+export function serReq2RequestInfo(input: SerializableRequest | string) {
   let final_input: RequestInfo;
   switch (typeof input) {
     case "string": {
@@ -60,26 +69,24 @@ export function SerReq2RequestInfo(input: SerializableRequest | string) {
   return final_input;
 }
 
-export async function ChromeRemoteExecution<T, A extends any[]>({
-  target,
-  func,
-  args
-}: {
-  target: chrome.scripting.InjectionTarget;
+type BrowserRemoteExecutionOptions<T, A extends any[]> = {
+  target: Browser.scripting.InjectionTarget;
   func: (...args: A) => T | Promise<T>;
   args: A;
-}): Promise<T> {
-  const results = await chrome.scripting.executeScript({
-    target,
-    func,
-    args
-  });
+};
+export async function browserRemoteExecution<T, A extends any[]>({
+  target,
+  func,
+  args,
+}: BrowserRemoteExecutionOptions<T, A>): Promise<T> {
+  const results = await browser.scripting.executeScript({ target, func, args });
 
   if (results && results[0] && results[0].result) {
     return results[0].result as T;
   } else {
-    console.error("ChromeRemoteExecution failed:", results);
-    throw new Error("Failed to execute script in tab.");
+    const msg = `Failed to execute script in tab: ${results}`;
+    debugPrint(msg);
+    throw new Error(msg);
   }
 }
 
@@ -91,4 +98,22 @@ export function hashStringToInt(str: string): number {
     hash |= 0;
   }
   return hash < 0 ? -hash : hash;
+}
+
+export function extractUrl(input: SerializableRequest | string): string {
+  return typeof input === "string" ? input : input.url;
+}
+
+export function debugPrint(...args: any[]) {
+  console.debug("[AutoNovel.addon] ", ...args);
+}
+debugPrint.info = (...args: any[]) =>
+  console.info("[AutoNovel.addon] ", ...args);
+debugPrint.error = (...args: any[]) =>
+  console.error("[AutoNovel.addon] ", ...args);
+debugPrint.warn = (...args: any[]) =>
+  console.warn("[AutoNovel.addon] ", ...args);
+
+export function newError(msg: string) {
+  return new Error(`[AutoNovel.addon] ${msg}`);
 }

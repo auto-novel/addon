@@ -23,6 +23,16 @@ export default defineConfig({
           "*://example.com/*",
         ],
       },
+      web_accessible_resources: [
+        {
+          resources: ["addon-world.js"],
+          matches: [
+            "https://*.novelia.cc/*",
+            "https://*.fishhawk.top/*",
+            "*://localhost/*",
+          ],
+        },
+      ],
       permissions: [
         "tabs",
         "scripting",

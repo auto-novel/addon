@@ -1,8 +1,4 @@
-import {
-  serializeRequest,
-  type SerializableRequest,
-  type SerializableResponse,
-} from "@/rpc/types";
+import { type SerializableRequest } from "@/rpc/types";
 
 export function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));

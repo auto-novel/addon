@@ -71,7 +71,7 @@ export class Persist<K, T> {
 
 export class RefCount extends Persist<string, number> {
   constructor(tag: string, storageArea: StorageArea = "session") {
-    super(tag, 0, storageArea);
+    super({ tag, defaultValue: 0, storageArea });
   }
 
   async inc(key: string) {

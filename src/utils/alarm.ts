@@ -1,7 +1,7 @@
 import { TabResMgr } from "@/utils/resource";
 
 export async function alarmLisener(alarm: Browser.alarms.Alarm) {
-  debugPrint("Alarm triggered: ", alarm.name);
+  debugLog("Alarm triggered: ", alarm.name);
   {
     const prefix = TabResMgr.genAlarmName();
     if (alarm.name.startsWith(prefix)) {

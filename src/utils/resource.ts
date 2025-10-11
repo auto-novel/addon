@@ -25,7 +25,7 @@ export class TabResMgr {
     if (tab.status === "complete") return Promise.resolve(tab);
 
     if (this.onLoadPromises.has(tab.id)) {
-      debugPrint("reusing existing onLoad promise for tab", tab.id);
+      debugLog("reusing existing onLoad promise for tab", tab.id);
       return this.onLoadPromises.get(tab.id)!;
     }
 
@@ -44,13 +44,10 @@ export class TabResMgr {
       };
 
       const timeoutId = setTimeout(() => {
-        debugPrint.warn(
-          "[TabResMgr] waitAnyTab timeout, resolving anyway",
-          tab,
-        );
+        debugLog.warn("[TabResMgr] waitAnyTab timeout, resolving anyway", tab);
         this.onLoadPromises.delete(tab.id!);
         browser.tabs.onUpdated.removeListener(listener);
-        debugPrint.warn("timeout: ", tab);
+        debugLog.warn("timeout: ", tab);
         resolve(tab);
       }, MAX_PAGE_LOAD_WAIT_TIME);
 
@@ -103,7 +100,7 @@ export class TabResMgr {
   }
 
   async findOrCreateTab(url: string): Promise<Tab> {
-    debugPrint(`[TabResMgr] findOrCreateTab: ${url}`);
+    debugLog(`[TabResMgr] findOrCreateTab: ${url}`);
     const normalizedUrl = new URL(url);
     url = normalizedUrl.toString();
 
@@ -150,7 +147,7 @@ class RulesManager {
       });
     } catch (e) {
       const msg = `Failed to install rules, ignoring: ${e}`;
-      debugPrint.error(msg);
+      debugLog.error(msg);
       throw newError(msg);
     }
   }
@@ -166,7 +163,7 @@ class RulesManager {
       }
     } catch (e) {
       const msg = `Failed to uninstall rules, ignoring: ${e}`;
-      debugPrint.error(msg);
+      debugLog.error(msg);
       throw newError(msg);
     }
   }
@@ -174,7 +171,7 @@ class RulesManager {
   clear() {
     // Clear all rules
     browser.declarativeNetRequest.getDynamicRules((rules) => {
-      debugPrint("[AutoNovel] Cleaning up old rules: ", rules);
+      debugLog("Cleaning up old rules: ", rules);
       browser.declarativeNetRequest.updateSessionRules({
         removeRuleIds: rules.map((r) => r.id),
       });

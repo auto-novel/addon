@@ -6,7 +6,7 @@ import {
   type Message,
 } from "@/rpc/types";
 import { doRedirection } from "@/utils/redirect";
-import { debugPrint } from "@/utils/tools";
+import { debugLog } from "@/utils/tools";
 import { alarmLisener } from "@/utils/alarm";
 
 import * as Api from "@/utils/api";
@@ -14,7 +14,7 @@ import { dispatchCommand } from "@/rpc/web";
 import { EnvType } from "@/rpc/types";
 
 export default defineBackground(() => {
-  console.debug(`[AutoNovel] CSC debug mode: ${IS_DEBUG}`);
+  debugLog.info(`CSC debug mode: ${IS_DEBUG}`);
   rulesMgr.clear();
 
   browser.alarms.onAlarm.addListener(alarmLisener);
@@ -25,7 +25,7 @@ export default defineBackground(() => {
     sendResponse: (response: any) => void,
   ) => {
     if (IS_DEBUG) {
-      debugPrint("[AutoNovel] Received message: ", message, sender);
+      debugLog("Received message: ", message, sender);
     }
 
     // FIXME(kuriko): check sender origin to prevent abuse
@@ -39,7 +39,7 @@ export default defineBackground(() => {
       case MessageType.Request: {
         const msg = message as MessageRequest;
 
-        debugPrint(sender);
+        debugLog(sender);
 
         if (sender.url === undefined || sender.tab?.id == undefined) {
           throw newError(`Invalid sender: ${sender}`);
@@ -55,7 +55,7 @@ export default defineBackground(() => {
 
         dispatchCommand(msg.payload.cmd, msg.payload.params, env)
           .then((result) => {
-            debugPrint("[AutoNovel] Crawler Result: ", result);
+            debugLog("Crawler Result: ", result);
 
             const resp = {
               type: MessageType.Response,
@@ -84,7 +84,7 @@ export default defineBackground(() => {
   browser.runtime.onMessageExternal.addListener(messageFn);
 
   browser.action.onClicked.addListener(async () => {
-    debugPrint("Browser action clicked");
+    debugLog("Browser action clicked");
     if (IS_DEBUG) {
       try {
         // FIXME(kuriko): 怎么可能又重定向又打开设置页的
@@ -93,9 +93,9 @@ export default defineBackground(() => {
           "https://www.amazon.co.jp/dp/4098505789",
           {},
         );
-        debugPrint("http_fetch: ", resp);
+        debugLog("http_fetch: ", resp);
       } catch (e) {
-        debugPrint.error("Error in browser action: ", e);
+        debugLog.error("Error in browser action: ", e);
       }
       return;
     }

@@ -92,7 +92,7 @@ export async function serializeRequest(
   }
 
   const headers: [string, string][] = Array.from(request.headers.entries());
-  console.log("serializeRequest: ", headers);
+  console.debug("serializeRequest: ", headers);
 
   // FIXME(kuriko):
   //   对于 Firefox，即使有 body，Request.body 也是 undefiend。

@@ -42,7 +42,7 @@ export async function browserRemoteExecution<T, A extends any[]>({
   } else {
     const msg = `Failed to execute script in tab: ${results}`;
     console.error(results);
-    debugPrint(msg);
+    debugLog(msg);
     throw new Error(msg);
   }
 }
@@ -61,15 +61,13 @@ export function extractUrl(input: SerializableRequest | string): string {
   return typeof input === "string" ? input : input.url;
 }
 
-export function debugPrint(...args: any[]) {
-  console.debug("[AutoNovel.addon] ", ...args);
+export function debugLog(...args: any[]) {
+  console.debug("[AutoNovel.addon]", ...args);
 }
-debugPrint.info = (...args: any[]) =>
-  console.info("[AutoNovel.addon] ", ...args);
-debugPrint.error = (...args: any[]) =>
-  console.error("[AutoNovel.addon] ", ...args);
-debugPrint.warn = (...args: any[]) =>
-  console.warn("[AutoNovel.addon] ", ...args);
+debugLog.info = (...args: any[]) => console.info("[AutoNovel.addon]", ...args);
+debugLog.error = (...args: any[]) =>
+  console.error("[AutoNovel.addon]", ...args);
+debugLog.warn = (...args: any[]) => console.warn("[AutoNovel.addon]", ...args);
 
 export function newError(msg: string) {
   return new Error(`[AutoNovel.addon] ${msg}`);

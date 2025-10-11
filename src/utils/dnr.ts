@@ -17,7 +17,7 @@ function spoofRulesBuilder(
   referer: string,
 ): any[] {
   let idx = spoofRulesKey(tabId, requestUrl, origin, referer);
-  debugPrint("Building spoof rules for", {
+  debugLog("Building spoof rules for", {
     idx,
     url: requestUrl,
     origin,
@@ -50,7 +50,7 @@ function corsRulesKey(tabId: number, initialatorUrl: string) {
 
 function corsRulesBuilder(tabId: number, initialatorUrl: string): any[] {
   let idx = corsRulesKey(tabId, initialatorUrl);
-  debugPrint("Building cors rules for", { idx, url: initialatorUrl });
+  debugLog("Building cors rules for", { idx, url: initialatorUrl });
   const origin = new URL(initialatorUrl).origin;
   return [
     {
@@ -137,7 +137,7 @@ export async function installSpoofRules(
   referer: string,
 ) {
   const rules = spoofRulesBuilder(tabId, requestUrl, origin, referer);
-  debugPrint("Add spoof rules: ", rules);
+  debugLog("Add spoof rules: ", rules);
   await rulesMgr.add(rules);
 }
 
@@ -148,14 +148,14 @@ export async function uninstallSpoofRules(
   referer: string,
 ) {
   const rules = spoofRulesBuilder(tabId, requestUrl, origin, referer);
-  debugPrint("Remove spoof rules: ", rules);
+  debugLog("Remove spoof rules: ", rules);
   await rulesMgr.remove(rules);
 }
 
 const CORS_KEY = "cors_rules";
 export async function installCORSRules(tabId: number, initialatorUrl: string) {
   const rules = corsRulesBuilder(tabId, initialatorUrl);
-  debugPrint("Add cors rules: ", rules);
+  debugLog("Add cors rules: ", rules);
   await rulesMgr.add(rules);
 }
 
@@ -164,6 +164,6 @@ export async function uninstallCORSRules(
   initialatorUrl: string,
 ) {
   const rules = corsRulesBuilder(tabId, initialatorUrl);
-  debugPrint("Remove cors rules: ", rules);
+  debugLog("Remove cors rules: ", rules);
   await rulesMgr.remove(rules);
 }

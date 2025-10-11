@@ -1,44 +1,52 @@
-import { Api } from "@utils/api";
-import type { ClientMethods } from "./client/client.types";
-import { sleep } from "@utils/tools";
+import * as Api from "@/utils/api";
+import { deserializeRequest, EnvType, type ClientCmd } from "@/rpc/types";
 
-export class WebCrawler {
-  url: string;
-  api: Api;
-
-  constructor(url: string) {
-    this.url = url;
-    this.api = new Api(url);
-  }
-
-  public applyCommand = async (command: keyof ClientMethods, params: any) => {
-    const method = this.methods[command];
-    if (!method) throw new Error(`Unknown command: ${command}`);
-    return await method(params);
-  };
-
-  public methods: ClientMethods = {
-    "http.raw": async ({ url, requestInit }) => await this.api.http_raw_fetch(url, requestInit),
-    "http.get": async ({ url, params }) => await this.api.http_get(url, params),
-    "http.postJson": async ({ url, data, headers }) => await this.api.http_post_json(url, data, headers),
-
-    "tab.switchTo": async ({ url }) => await this.api.tab_swith_to(url),
-    "tab.http.get": async ({ url, params }) => await this.api.tab_http_get(url, params),
-    "tab.http.postJson": async ({ url, data }) => await this.api.tab_http_post_json(url, data),
-    "tab.dom.querySelectorAll": async ({ selector }) => await this.api.tab_dom_querySelectorAll(selector),
-
-    "cookies.get": async ({ url }) => await this.api.cookies_get(url),
-
-    "dom.querySelectorAll": async ({ selector }) => await this.api.dom_query_selector_all(selector),
-
-    "job.quit": async () => await this.quit()
-  };
-
-  public async quit() {
-    await this.api.close();
-  }
-
-  public async ensureInit(url: string) {
-    this.api.init();
-  }
+export async function dispatchCommand(
+  command: keyof ClientCmd,
+  params: any,
+  env: EnvType,
+) {
+  const method = METHODS[command];
+  if (!method) throw new Error(`Unknown command: ${command}`);
+  return await method(params, env);
 }
+
+const METHODS: ClientCmd = {
+  "base.ping": async () => await "pong",
+  "base.info": async () => {
+    return await {
+      version: browser.runtime.getManifest().version,
+      homepage_url:
+        browser.runtime.getManifest().homepage_url ??
+        "https://github.com/auto-novel/addon",
+    };
+  },
+
+  "local.bypass.enable": async (
+    { requestUrl, origin, referer },
+    { sender: { tabId } },
+  ) => await Api.local_install_bypass(tabId, { requestUrl, origin, referer }),
+
+  "local.bypass.disable": async (
+    { requestUrl, origin, referer },
+    { sender: { tabId } },
+  ) => await Api.local_uninstall_bypass(tabId, { requestUrl, origin, referer }),
+
+  "http.fetch": async ({ input, requestInit }) => {
+    const final_input = await deserializeRequest(input);
+    return await Api.http_fetch(final_input, requestInit);
+  },
+
+  "tab.http.fetch": async ({ tabUrl, input, requestInit }) =>
+    await Api.tab_http_fetch(tabUrl, input, requestInit),
+
+  "tab.dom.querySelectorAll": async ({ url, selector }) =>
+    await Api.tab_dom_querySelectorAll(url, selector),
+
+  "cookies.setFromResponse": async ({ response }) =>
+    await Api.cookies_setFromSerResp(response),
+
+  "cookies.get": async ({ url }) => await Api.cookies_get(url),
+
+  "cookies.getStr": async ({ url }) => await Api.cookies_getStr(url),
+};

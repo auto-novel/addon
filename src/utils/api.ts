@@ -1,180 +1,239 @@
-import { Debugger } from "@utils/debugger";
-import { WaitOrTimeout } from "@utils/tools";
-import { MAX_PAGE_LOAD_WAIT_TIME } from "@utils/consts";
+import {
+  BypassParams,
+  SerializableRequest,
+  SerializableResponse,
+  serializeResponse,
+} from "@/rpc/types";
+import { browserRemoteExecution, extractUrl } from "@/utils/tools";
+import { tabResMgr } from "@/utils/resource";
+import setCookie from "set-cookie-parser";
 
-type Tab = chrome.tabs.Tab;
+type Tab = Browser.tabs.Tab;
 
-// function requireInit(target: any, key: string, descriptor: any) {
-//     const originalMethod = descriptor.value;
-//     descriptor.value = async function(...args: any[]) {
-//         const This = this as { initialized: boolean; init: () => Promise<void> };
-//         if (!This.initialized) {
-//             await This.init();
-//         }
-//         return originalMethod.apply(this, args);
-//     }
-//     return descriptor;
-// }
+// ==========================================================================
+export async function http_fetch(
+  input: Request | string | URL,
+  requestInit?: RequestInit,
+): Promise<SerializableResponse> {
+  const resp = await fetch(input, requestInit);
+  return serializeResponse(resp);
+}
 
-export class Api {
-  url: string;
-  initialized = false;
+export async function tab_dom_querySelectorAll(
+  url: string,
+  selector: string,
+): Promise<string[]> {
+  const tab = await tabResMgr.findOrCreateTab(url);
+  const results = await browserRemoteExecution({
+    target: { tabId: tab.id! },
+    func: (sel: string) => {
+      const elements = document.querySelectorAll(sel);
+      const texts: string[] = Array.from(elements).map((el) => el.outerHTML);
+      return texts;
+    },
+    args: [selector],
+  });
+  await tabResMgr.releaseTab(tab.id!);
+  return results;
+}
 
-  tab!: Tab;
-  debugger!: Debugger;
+export async function tab_http_fetch(
+  tabUrl: string,
+  input: SerializableRequest | string,
+  requestInit?: RequestInit,
+): Promise<SerializableResponse> {
+  const bypassParams: BypassParams = {
+    requestUrl: extractUrl(input),
+    // incase of `Referrer Policystrict-origin-when-cross-origin`
+    // origin: new URL(tabUrl).origin,
+  };
 
-  constructor(url: string) {
-    this.url = url;
-    this.initialized = false;
-  }
+  const tab = await tabResMgr.findOrCreateTab(tabUrl);
+  if (tab.id == null) throw newError(`Tab has no id: ${tab}`);
 
-  async requireInit() {
-    if (this.initialized) return;
-    await this.init();
-    this.initialized = true;
-  }
+  await local_install_bypass(tab.id, bypassParams);
 
-  // @requireInit
-  private async tab_wait(tab: Tab) {
-    await this.requireInit();
-    return new Promise<Tab>((resolve) => {
-      chrome.tabs.onUpdated.addListener(function listener(tabId, info) {
-        // status == unloaded, loading, complete
-        if (tabId === tab.id && info.status === "complete") {
-          chrome.tabs.onUpdated.removeListener(listener);
-          resolve(tab);
+  // NOTE(kuriko): 在 tab 上面直接执行 fetch，一般不用考虑 CORS bypass 问题。
+  const respSer = await browserRemoteExecution({
+    target: { tabId: tab.id },
+    func: async (
+      input: SerializableRequest | string,
+      requestInit?: RequestInit,
+    ) => {
+      // Copied from types.ts
+      function deserializeRequest(req: SerializableRequest): RequestInfo {
+        if (typeof req === "string") {
+          return req;
         }
-      });
-    });
+
+        console.log("deserializeRequest: ", req);
+        const init: RequestInit = {
+          method: req.method,
+          headers: new Headers(req.headers),
+          body: req.body,
+          mode: req.mode,
+          credentials: req.credentials,
+          cache: req.cache,
+          redirect: req.redirect,
+          referrer: req.referrer,
+          integrity: req.integrity,
+        };
+
+        return new Request(req.url, init);
+      }
+
+      // Copied from types.ts
+      function SerReq2RequestInfo(input: SerializableRequest | string) {
+        let final_input: RequestInfo;
+        switch (typeof input) {
+          case "string": {
+            final_input = input;
+            break;
+          }
+          case "object": {
+            final_input = deserializeRequest(input as SerializableRequest);
+            break;
+          }
+          default:
+            throw new Error("Invalid input type for http.raw");
+        }
+        return final_input;
+      }
+
+      async function Response2SerResp(
+        response: Response,
+      ): Promise<SerializableResponse> {
+        const headers: [string, string][] = Array.from(
+          response.headers.entries(),
+        );
+        const bodyText = await response.text();
+
+        const serializableResponse = {
+          body: bodyText,
+          status: response.status,
+          statusText: response.statusText,
+          ok: response.ok,
+          headers: headers,
+          redirected: response.redirected,
+          url: response.url,
+          type: response.type,
+        };
+        return serializableResponse;
+      }
+
+      const _input = SerReq2RequestInfo(input);
+      const ret = await fetch(_input, requestInit);
+      const respSer = await Response2SerResp(ret);
+      console.debug("tab_http_fetch response: ", respSer);
+      return respSer;
+    },
+    args: [input, requestInit],
+  });
+  await local_uninstall_bypass(tab.id, bypassParams);
+  await tabResMgr.releaseTab(tab.id);
+  return respSer;
+}
+
+export async function cookies_get(
+  url: string,
+): Promise<Browser.cookies.Cookie[]> {
+  return await browser.cookies.getAll({ url });
+}
+
+export async function cookies_getStr(url: string): Promise<string> {
+  const cookies = await cookies_get(url);
+  return cookies.map((c) => `${c.name}=${c.value}`).join("; ");
+}
+
+export async function cookies_setFromSerResp(
+  response: SerializableResponse,
+): Promise<void> {
+  const setCookieStrings = Array.from(response.headers)
+    .filter((h) => h[0].toLowerCase() === "set-cookie")
+    .map((h) => h[1]);
+
+  if (setCookieStrings.length === 0) {
+    return;
   }
 
-  public async close() {
-    if (this.initialized === false) {
-      return;
+  const parsedCookies = setCookie.parse(setCookieStrings);
+  const setPromises = parsedCookies.map((cookie) => {
+    const setDetail: Browser.cookies.SetDetails = {
+      ...cookie,
+      url: response.url, // Provide the required context URL.
+      sameSite: cookie.sameSite as Browser.cookies.SameSiteStatus, // Cast is needed here
+    };
+
+    // Convert 'expires' or 'maxAge' to 'expirationDate' (seconds since epoch)
+    if (cookie.expires) {
+      setDetail.expirationDate = cookie.expires.getTime() / 1000;
+    } else if (cookie.maxAge) {
+      // maxAge is seconds from now.
+      setDetail.expirationDate = Date.now() / 1000 + cookie.maxAge;
     }
-    console.info("crawler api closing");
-    await this.debugger.disconnect();
-    await chrome.tabs.remove(this.tab.id!);
-  }
+    return browser.cookies.set(setDetail);
+  });
 
-  public async init() {
-    // console.error("Calling init");
-    this.initialized = true;
-    this.tab = await chrome.tabs
-      .create({
-        url: this.url.toString(),
-        active: false
-      })
-      .then(async (tab) => {
-        return await WaitOrTimeout(this.tab_wait(tab), MAX_PAGE_LOAD_WAIT_TIME).catch(() => {
-          console.debug(`tab ${this.url} completing timeout, proceed anyway.`);
-          return tab;
-        });
-      });
-
-    this.debugger = new Debugger(this.tab);
-    await this.debugger.connect();
-  }
-
-  // @requireInit
-  public async tab_swith_to(url: string) {
-    await this.requireInit();
-    await chrome.tabs.update(this.tab!.id, { url }).then(async (tab) =>
-      WaitOrTimeout(this.tab_wait(tab || this.tab), MAX_PAGE_LOAD_WAIT_TIME)
-        .then((tab) => {
-          this.url = url;
-        })
-        .catch(() => {})
+  try {
+    await Promise.all(setPromises);
+    console.log(
+      `Successfully set ${setPromises.length} cookies for ${response.url}`,
     );
+  } catch (error) {
+    throw newError(`Failed to set one or more cookies: ${error}`);
   }
+}
 
-  public async tab_dom_querySelectorAll(selector: string): Promise<string[]> {
-    await this.requireInit();
-    return await this.debugger.dom_querySelectorAll(selector);
-  }
+/*
+  bypass 主要针对 web 端发起 fetch 请求时的 CORS 问题和 Spoof 问题。
+  动态加载规则主要是防止影响安装插件的用户的正常使用，尽可能做到不需要用户交互（点击启用和停用）
+  具体说明：
+  Spoof，针对 Request：
+    拦截到发起者到 requestUrl 的请求，修改 Origin，Referer，Cookies 等头部
 
-  /*
-            在当前 tab 的身份下执行 http_get
-            CORS: 遵循浏览器
-            cookies: 浏览器自动附加
-        */
-  // @requireInit
-  public async tab_http_get(url: string, params?: Record<string, string>): Promise<string> {
-    await this.requireInit();
-    return await this.debugger.http_get(url, params);
-  }
+  CORS，针对 Response：
+    拦截 Response，添加 CORS 相关的头部
+*/
+type Rule = Browser.declarativeNetRequest.Rule;
+type Condition = Browser.declarativeNetRequest.RuleCondition;
+type _rule1 = Browser.declarativeNetRequest.RuleCondition["tabIds"];
+type _rule2 = Browser.declarativeNetRequest.RuleCondition["requestMethods"];
+type _rule3 =
+  Browser.declarativeNetRequest.RuleCondition["isUrlFilterCaseSensitive"];
+type _rule4 = Browser.declarativeNetRequest.RuleCondition["urlFilter"];
+type _rule5 = Browser.declarativeNetRequest.RuleCondition["resourceTypes"];
+type _rule6 = Browser.declarativeNetRequest.RuleCondition["responseHeaders"];
 
-  /*
-            在当前 tab 的身份下执行 http_post_json
-            CORS: 遵循浏览器
-            cookies: 浏览器自动附加
-        */
-  // @requireInit
-  public async tab_http_post_json(url: string, data?: Record<string, string>): Promise<string> {
-    await this.requireInit();
-    return await this.debugger.http_post_json(url, data);
-  }
+export async function local_install_bypass(
+  tabId: number,
+  bypassParams: BypassParams,
+): Promise<void> {
+  const { requestUrl, origin, referer } = bypassParams;
+  const _origin = origin ?? new URL(requestUrl).origin;
+  const _referer = referer ?? _origin + "/";
+  let tab = await browser.tabs.get(tabId);
+  tab = await tabResMgr.waitAnyTab(tab); // refresh tab status
+  const tabUrl = tab.url ?? tab.pendingUrl;
+  if (!tabUrl) throw newError(`Tab has no url: ${tab}`);
+  await Promise.all([
+    installSpoofRules(tabId, requestUrl, _origin, _referer),
+    installCORSRules(tabId, tabUrl),
+  ]);
+}
 
-  /*
-            以 extension 身份执行 fetch
-            CORS: 遵循 host_permissions 设定
-            cookies: 手动获取并添加
-        */
-  public async http_raw_fetch(url: string, requestInit?: RequestInit): Promise<string> {
-    const final_url = new URL(url).toString();
-    const response = await fetch(final_url, requestInit);
-    return response.text();
-  }
-  public async http_get(url: string, params?: Record<string, string>): Promise<string> {
-    let final_url = new URL(url).toString();
-    if (params) {
-      final_url += "?" + new URLSearchParams(params).toString();
-    }
-    const resp = await fetch(final_url, { method: "GET", cache: "no-cache" });
-    return resp.text();
-  }
-  public async http_post_json(
-    url: string,
-    data?: Record<string, string>,
-    headers?: Record<string, string>
-  ): Promise<string> {
-    const final_url = new URL(url).toString();
-    const jsonDataString = JSON.stringify(data || {});
-    const resp = await fetch(final_url, {
-      method: "POST",
-      cache: "no-cache",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-        ...(headers || {})
-      },
-      body: JSON.stringify(jsonDataString)
-    });
-    return resp.text();
-  }
+export async function local_uninstall_bypass(
+  tabId: number,
+  bypassParams: BypassParams,
+): Promise<void> {
+  const { requestUrl, origin, referer } = bypassParams;
+  const _origin = origin ?? new URL(requestUrl).origin;
+  const _referer = referer ?? _origin + "/";
+  const tab = await browser.tabs.get(tabId);
+  const tabUrl = tab.url ?? tab.pendingUrl;
+  if (!tabUrl) throw newError(`Tab has no url: ${tab}`);
 
-  public async cookies_get(url: string): Promise<chrome.cookies.Cookie[]> {
-    // get all cookies for the url
-    return await chrome.cookies.getAll({ url });
-  }
-
-  // @requireInit
-  public async dom_query_selector_all(selector: string): Promise<string[]> {
-    await this.requireInit();
-    const results = await chrome.scripting.executeScript({
-      target: { tabId: this.tab.id! },
-      func: (selector: string): string[] => {
-        const els = document.querySelectorAll(selector);
-        const arrayEls = Array.from(els);
-        return arrayEls.map((el) => el.outerHTML);
-      },
-      args: [selector]
-    });
-
-    if (results && results[0] && results[0].result) {
-      return results[0].result as string[];
-    } else {
-      return [];
-    }
-  }
+  await Promise.all([
+    uninstallSpoofRules(tabId, requestUrl, _origin, _referer),
+    uninstallCORSRules(tabId, tabUrl),
+  ]);
 }

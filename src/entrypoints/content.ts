@@ -27,24 +27,24 @@ export default defineContentScript({
   ],
   main() {
     console.log("[AutoNovel] Content script for auto-novel loaded.");
-    // window.addEventListener('message', (event) => {
-    //   if (event.source !== window) {
-    //     return;
-    //   }
+    window.addEventListener("message", (event) => {
+      if (event.source !== window) {
+        return;
+      }
 
-    //   for (const key of Object.keys(MsgType)) {
-    //     if (event.data?.type === (MsgType as any)[key]) {
-    //       if (IS_DEBUG && browserInfo.isChrome) {
-    //         console.info(
-    //           '[AutoNovel] In Production Mode, please use chrome.runtime.postMessage'
-    //         );
-    //         return;
-    //       }
-    //       break;
-    //     }
-    //   }
-    //   if (event.data?.type == MsgType.Response) return; // Ignore responses.
-    //   process_forward(event);
-    // });
+      for (const key of Object.keys(MessageType)) {
+        if (event.data?.type === (MessageType as any)[key]) {
+          if (IS_DEBUG && browserInfo.isChrome) {
+            console.info(
+              "[AutoNovel] In Production Mode, please use chrome.runtime.postMessage",
+            );
+            return;
+          }
+          break;
+        }
+      }
+      if (event.data?.type == MessageType.Response) return; // Ignore responses.
+      process_forward(event);
+    });
   },
 });

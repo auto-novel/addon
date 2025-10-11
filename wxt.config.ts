@@ -28,7 +28,6 @@ export default defineConfig({
         "scripting",
         "alarms",
         "cookies",
-        "activeTab",
         "storage",
         "webRequest",
         "declarativeNetRequest",

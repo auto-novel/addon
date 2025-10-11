@@ -39,6 +39,7 @@ export async function browserRemoteExecution<T, A extends any[]>({
   func,
   args,
 }: BrowserRemoteExecutionOptions<T, A>): Promise<T> {
+  debugPrint("executing script in tab:", target);
   const results = await browser.scripting.executeScript({ target, func, args });
 
   if (results && results[0] && results[0].result) {

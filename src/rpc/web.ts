@@ -25,12 +25,12 @@ const METHODS: ClientCmd = {
   "local.bypass.enable": async (
     { requestUrl, origin, referer },
     { sender: { tabId } },
-  ) => await Api.local_install_bypass(tabId, requestUrl, origin, referer),
+  ) => await Api.local_install_bypass(tabId, { requestUrl, origin, referer }),
 
   "local.bypass.disable": async (
     { requestUrl, origin, referer },
     { sender: { tabId } },
-  ) => await Api.local_uninstall_bypass(tabId, requestUrl, origin, referer),
+  ) => await Api.local_uninstall_bypass(tabId, { requestUrl, origin, referer }),
 
   "http.fetch": async ({ input, requestInit }) => {
     const final_input = await deserializeRequest(input);

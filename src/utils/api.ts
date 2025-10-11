@@ -1,4 +1,5 @@
 import {
+  BypassParams,
   SerializableRequest,
   SerializableResponse,
   serializeResponse,
@@ -41,13 +42,20 @@ export async function tab_http_fetch(
   input: SerializableRequest | string,
   requestInit?: RequestInit,
 ): Promise<SerializableResponse> {
-  const tab = await tabResMgr.findOrCreateTab(tabUrl);
+  const bypassParams: BypassParams = {
+    requestUrl: extractUrl(input),
+    // incase of `Referrer Policystrict-origin-when-cross-origin`
+    // origin: new URL(tabUrl).origin,
+  };
 
-  await local_install_bypass(tab.id!, extractUrl(input));
+  const tab = await tabResMgr.findOrCreateTab(tabUrl);
+  if (tab.id == null) throw newError(`Tab has no id: ${tab}`);
+
+  await local_install_bypass(tab.id, bypassParams);
 
   // NOTE(kuriko): 在 tab 上面直接执行 fetch，一般不用考虑 CORS bypass 问题。
   const respSer = await browserRemoteExecution({
-    target: { tabId: tab.id! },
+    target: { tabId: tab.id },
     func: async (
       input: SerializableRequest | string,
       requestInit?: RequestInit,
@@ -116,13 +124,13 @@ export async function tab_http_fetch(
       const _input = SerReq2RequestInfo(input);
       const ret = await fetch(_input, requestInit);
       const respSer = await Response2SerResp(ret);
-      console.debug("tab_http_fetch: ", respSer);
+      console.debug("tab_http_fetch response: ", respSer);
       return respSer;
     },
     args: [input, requestInit],
   });
-  await tabResMgr.releaseTab(tab.id!);
-  await local_uninstall_bypass(tab.id!, extractUrl(input));
+  await local_uninstall_bypass(tab.id, bypassParams);
+  await tabResMgr.releaseTab(tab.id);
   return respSer;
 }
 
@@ -198,14 +206,13 @@ type _rule6 = Browser.declarativeNetRequest.RuleCondition["responseHeaders"];
 
 export async function local_install_bypass(
   tabId: number,
-  requestUrl: string,
-  origin?: string,
-  referer?: string,
+  bypassParams: BypassParams,
 ): Promise<void> {
+  const { requestUrl, origin, referer } = bypassParams;
   const _origin = origin ?? new URL(requestUrl).origin;
   const _referer = referer ?? _origin + "/";
-  const tab = await browser.tabs.get(tabId);
-  await tabResMgr.waitAnyTab(tab); // FIXME
+  let tab = await browser.tabs.get(tabId);
+  tab = await tabResMgr.waitAnyTab(tab); // refresh tab status
   const tabUrl = tab.url ?? tab.pendingUrl;
   if (!tabUrl) throw newError(`Tab has no url: ${tab}`);
   await Promise.all([
@@ -216,10 +223,9 @@ export async function local_install_bypass(
 
 export async function local_uninstall_bypass(
   tabId: number,
-  requestUrl: string,
-  origin?: string,
-  referer?: string,
+  bypassParams: BypassParams,
 ): Promise<void> {
+  const { requestUrl, origin, referer } = bypassParams;
   const _origin = origin ?? new URL(requestUrl).origin;
   const _referer = referer ?? _origin + "/";
   const tab = await browser.tabs.get(tabId);

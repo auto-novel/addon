@@ -21,23 +21,36 @@ export class TabResMgr {
   constructor() {}
 
   public waitAnyTab(tab: Tab): Promise<Tab> {
-    if (tab.status === "complete") return Promise.resolve(tab);
     if (!tab.id) return Promise.reject("no tab id");
+    if (tab.status === "complete") return Promise.resolve(tab);
 
     if (this.onLoadPromises.has(tab.id)) {
+      debugPrint("reusing existing onLoad promise for tab", tab.id);
       return this.onLoadPromises.get(tab.id)!;
     }
 
     const promise = new Promise<Tab>((resolve) => {
-      const listener = (tabId: number, info: { status?: string }) => {
+      const listener = (
+        tabId: number,
+        info: { status?: string },
+        newTab: Tab,
+      ) => {
         if (tabId === tab.id && info.status === "complete") {
+          this.onLoadPromises.delete(tab.id!);
           clearTimeout(timeoutId);
           browser.tabs.onUpdated.removeListener(listener);
-          resolve(tab);
+          resolve(newTab); // NOTE(kuriko): return the newTab states
         }
       };
+
       const timeoutId = setTimeout(() => {
+        debugPrint.warn(
+          "[TabResMgr] waitAnyTab timeout, resolving anyway",
+          tab,
+        );
+        this.onLoadPromises.delete(tab.id!);
         browser.tabs.onUpdated.removeListener(listener);
+        debugPrint.warn("timeout: ", tab);
         resolve(tab);
       }, MAX_PAGE_LOAD_WAIT_TIME);
 
@@ -90,7 +103,7 @@ export class TabResMgr {
   }
 
   async findOrCreateTab(url: string): Promise<Tab> {
-    console.info(`[TabResMgr] findOrCreateTab: ${url}`);
+    debugPrint(`[TabResMgr] findOrCreateTab: ${url}`);
     const normalizedUrl = new URL(url);
     url = normalizedUrl.toString();
 
@@ -111,7 +124,7 @@ export class TabResMgr {
         refCount: 0,
       });
     }
-    await this.waitAnyTab(tab);
+    tab = await this.waitAnyTab(tab);
 
     if (tab.id == null) throw newError(`Tab has no id: ${tab}`);
     await this.acquireTab(tab.id);
@@ -161,7 +174,7 @@ class RulesManager {
   clear() {
     // Clear all rules
     browser.declarativeNetRequest.getDynamicRules((rules) => {
-      console.info("[AutoNovel] Cleaning up old rules: ", rules);
+      debugPrint("[AutoNovel] Cleaning up old rules: ", rules);
       browser.declarativeNetRequest.updateSessionRules({
         removeRuleIds: rules.map((r) => r.id),
       });

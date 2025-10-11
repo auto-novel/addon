@@ -15,6 +15,8 @@ import { EnvType } from "@/rpc/types";
 
 export default defineBackground(() => {
   console.debug(`[AutoNovel] CSC debug mode: ${IS_DEBUG}`);
+  rulesMgr.clear();
+
   browser.alarms.onAlarm.addListener(alarmLisener);
 
   const messageFn = (
@@ -25,6 +27,9 @@ export default defineBackground(() => {
     if (IS_DEBUG) {
       debugPrint("[AutoNovel] Received message: ", message, sender);
     }
+
+    // FIXME(kuriko): check sender origin to prevent abuse
+    // consts.ts / isMessagingAllowed function
 
     switch (message.type) {
       case MessageType.Ping: {

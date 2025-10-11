@@ -94,11 +94,25 @@ export async function serializeRequest(
   const headers: [string, string][] = Array.from(request.headers.entries());
   console.log("serializeRequest: ", headers);
 
+  // FIXME(kuriko):
+  //   对于 Firefox，即使有 body，Request.body 也是 undefiend。
+  //   对于 Chrome，有 body 时，Request.body 存在，可以用于判断。
+  //   对于 GET, HEAD， body 必须是 undefined。
+  let body = undefined;
+  try {
+    if (request.method === "GET" || request.method === "HEAD") {
+      body = undefined;
+    } else {
+      body = await request.clone().text();
+    }
+  } catch (e) {
+    console.debug("Failed to serialize request body: ", e);
+  }
   const req: SerializableRequest = {
     url: request.url,
     method: request.method,
     headers,
-    body: request.body ? await request.text() : undefined,
+    body,
     mode: request.mode,
     credentials: request.credentials,
     cache: request.cache,
@@ -114,6 +128,13 @@ export type InfoResult = {
   homepage_url: string;
 };
 
+export type BypassParams = {
+  requestUrl: string;
+  spoofOrigin?: string;
+  origin?: string;
+  referer?: string;
+};
+
 export type ClientCmd = {
   "base.ping"(): Promise<string>;
   "base.info"(): Promise<InfoResult>;
@@ -127,14 +148,7 @@ export type ClientCmd = {
     env: EnvType,
   ): Promise<void>;
 
-  "local.bypass.disable"(
-    params: {
-      requestUrl: string;
-      origin?: string;
-      referer?: string;
-    },
-    env: EnvType,
-  ): Promise<void>;
+  "local.bypass.disable"(params: BypassParams, env: EnvType): Promise<void>;
 
   "http.fetch"(
     params: {

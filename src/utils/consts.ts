@@ -2,8 +2,8 @@ import Bowser from "bowser";
 
 export const IS_DEBUG = process.env.NODE_ENV !== "production";
 
-export const MAX_PAGE_LOAD_WAIT_TIME = 10_000; // ms
-export const DELAYED_TAB_CLOSE_TIME = 3_000; // ms
+export const MAX_PAGE_LOAD_WAIT_TIME = 10000; // ms
+export const DELAYED_TAB_CLOSE_TIME = 3000; // ms
 
 export const browserInfo = {
   isFirefox: false,
@@ -53,7 +53,7 @@ export const browserInfo = {
 //       return false;
 //     });
 //   } catch (error) {
-//     console.error("Could not parse sender URL:", url, error);
+//     debugPrint.error("Could not parse sender URL:", url, error);
 //   }
 //   return isAllowed;
 // }

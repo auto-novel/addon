@@ -205,11 +205,13 @@ export async function local_install_bypass(
   const _origin = origin ?? new URL(requestUrl).origin;
   const _referer = referer ?? _origin + "/";
   const tab = await browser.tabs.get(tabId);
+  await tabResMgr.waitAnyTab(tab); // FIXME
   const tabUrl = tab.url ?? tab.pendingUrl;
   if (!tabUrl) throw newError(`Tab has no url: ${tab}`);
-
-  await installSpoofRules(tabId, requestUrl, _origin, _referer);
-  await installCORSRules(tabId, tabUrl);
+  await Promise.all([
+    installSpoofRules(tabId, requestUrl, _origin, _referer),
+    installCORSRules(tabId, tabUrl),
+  ]);
 }
 
 export async function local_uninstall_bypass(
@@ -224,6 +226,8 @@ export async function local_uninstall_bypass(
   const tabUrl = tab.url ?? tab.pendingUrl;
   if (!tabUrl) throw newError(`Tab has no url: ${tab}`);
 
-  await uninstallSpoofRules(tabId, requestUrl, _origin, _referer);
-  await uninstallCORSRules(tabId, tabUrl);
+  await Promise.all([
+    uninstallSpoofRules(tabId, requestUrl, _origin, _referer),
+    uninstallCORSRules(tabId, tabUrl),
+  ]);
 }

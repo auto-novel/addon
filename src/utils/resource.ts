@@ -20,22 +20,6 @@ export class TabResMgr {
 
   constructor() {}
 
-  async getCurrentTabId(): Promise<number | undefined> {
-    const tabs = await browser.tabs.query({
-      active: true,
-      currentWindow: true,
-    });
-    if (tabs.length === 0 || tabs[0].id === undefined) {
-      return undefined;
-    }
-    return tabs[0].id;
-  }
-
-  async setCurrentTabId(tabId: number | undefined) {
-    if (tabId === undefined) return;
-    await browser.tabs.update(tabId, { active: true });
-  }
-
   public waitAnyTab(tab: Tab): Promise<Tab> {
     if (!tab.id) return Promise.reject("no tab id");
     if (tab.status === "complete") return Promise.resolve(tab);
@@ -124,9 +108,8 @@ export class TabResMgr {
     // FIXME(kuriko): 如果用户此时手动关闭了标签页怎么办？
     let tab;
     if (tabs.length > 0) {
-      tab = await this.waitAnyTab(tabs[0]);
+      tab = tabs[0];
     } else {
-      const currentTabId = await this.getCurrentTabId();
       tab = await browser.tabs.create({
         url,
         active: false,
@@ -137,9 +120,8 @@ export class TabResMgr {
         tabId: tab.id,
         refCount: 0,
       });
-      tab = await this.waitAnyTab(tab);
-      await this.setCurrentTabId(currentTabId);
     }
+    tab = await this.waitAnyTab(tab);
 
     if (tab.id == null) throw newError(`Tab has no id: ${tab}`);
     await this.acquireTab(tab.id);

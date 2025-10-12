@@ -16,9 +16,10 @@ export default defineConfig({
       },
       externally_connectable: {
         matches: [
-          "https://*.novelia.cc/*",
-          "https://*.fishhawk.top/*",
-          "http://localhost/*",
+          "*://*.novelia.cc/*",
+          "*://*.fishhawk.top/*",
+          "*://localhost/*",
+          "*://example.com/*",
         ],
       },
       web_accessible_resources: [
@@ -27,7 +28,7 @@ export default defineConfig({
           matches: [
             "https://*.novelia.cc/*",
             "https://*.fishhawk.top/*",
-            "http://localhost/*",
+            "*://localhost/*",
           ],
         },
       ],

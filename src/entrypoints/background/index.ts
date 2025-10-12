@@ -1,17 +1,15 @@
-import { IS_DEBUG } from "@/utils/consts";
 import {
+  EnvType,
   MessageRequest,
   MessageResponse,
   MessageType,
   type Message,
 } from "@/rpc/types";
-import { doRedirection } from "@/utils/redirect";
-import { debugLog } from "@/utils/tools";
-import { alarmLisener } from "@/utils/alarm";
-
-import * as Api from "@/utils/api";
 import { dispatchCommand } from "@/rpc/web";
-import { EnvType } from "@/rpc/types";
+import { alarmLisener } from "@/utils/alarm";
+import { IS_DEBUG } from "@/utils/consts";
+import { debugLog } from "@/utils/tools";
+import { redirectToAutoNovel } from "./redirect";
 
 export default defineBackground(() => {
   debugLog.info(`CSC debug mode: ${IS_DEBUG}`);
@@ -84,7 +82,7 @@ export default defineBackground(() => {
   browser.runtime.onMessageExternal.addListener(messageFn);
 
   browser.action.onClicked.addListener(() => {
-    doRedirection();
+    redirectToAutoNovel();
   });
 
   if (IS_DEBUG) {

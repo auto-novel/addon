@@ -1,4 +1,4 @@
-export function doRedirection() {
+export function redirectToAutoNovel() {
   browser.tabs.query({ active: true, lastFocusedWindow: true }, (tabs) => {
     const url = tabs[0].url ?? "";
 

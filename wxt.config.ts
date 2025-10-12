@@ -78,7 +78,7 @@ export default defineConfig({
   webExt: {
     openDevtools: true,
     firefoxArgs: ["--devtools"],
-    chromiumArgs: ["--auto-open-devtools-for-tabs"],
+    chromiumArgs: ["--auto-open-devtools-for-tabs", "--start-maximized"],
   },
   vite: () => ({
     plugins: [tailwindcss()],

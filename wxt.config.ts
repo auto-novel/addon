@@ -77,7 +77,6 @@ export default defineConfig({
   srcDir: "src",
   webExt: {
     openDevtools: true,
-    startUrls: ["http://localhost:5173/wenku-edit"],
     firefoxArgs: ["--devtools"],
     chromiumArgs: ["--auto-open-devtools-for-tabs"],
   },

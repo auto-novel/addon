@@ -20,6 +20,9 @@ jobs:
       - uses: actions/checkout@v5
 
       - uses: pnpm/action-setup@v4
+        with:
+          version: "latest"
+          run_install: false
 
       - uses: actions/setup-node@v4
         with:
@@ -33,10 +36,13 @@ jobs:
         run: |
           pnpm zip
           pnpm zip:firefox
+          rm .output/*-sources.zip
 
       - uses: softprops/action-gh-release@v2
         with:
           prerelease: true
           overwrite_files: true
+          tag_name: nightly
+          body_path: .github/release.md
           files: |
             .output/addon-*.zip

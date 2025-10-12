@@ -34,6 +34,7 @@ const cases = ref<TestCase[]>([
 ]);
 
 async function runTestCase(testCase: TestCase) {
+  if (testCase.status === "executing") return;
   testCase.status = "executing";
   await testCase
     .test()

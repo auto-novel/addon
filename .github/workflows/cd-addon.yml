@@ -35,8 +35,8 @@ jobs:
           pnpm zip:firefox
 
       - uses: softprops/action-gh-release@v2
-        prerelease: true
-        overwrite_files: true
         with:
+          prerelease: true
+          overwrite_files: true
           files: |
             .output/addon-*.zip

@@ -22,7 +22,7 @@ function tabHttpFetchCase(tabUrl: string, url: string, content: string) {
     name: `tab_http_fetch ${url}`,
     status: null,
     test: async () => {
-      const resp = await Api.tab_http_fetch(tabUrl, url, {});
+      const resp = await Api.tab_http_fetch({ tabUrl }, url, {});
       return resp.status === 200 && resp.body.includes(content);
     },
   } as TestCase;

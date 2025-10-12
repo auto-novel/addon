@@ -19,9 +19,14 @@ const cases = ref<TestCase[]>([
 ]);
 
 async function runAllTestCases() {
-  for (const c of cases.value) {
-    await Test.runTestCase(c);
-  }
+  // for (const c of cases.value) {
+  //   await Test.runTestCase(c);
+  // }
+  await Promise.all(
+    cases.value.map((c: any) => {
+      return Test.runTestCase(c);
+    }),
+  );
 }
 </script>
 

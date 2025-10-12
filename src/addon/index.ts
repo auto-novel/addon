@@ -1,5 +1,3 @@
-import Bowser from "bowser";
-
 import type { Message, MessageRequest, MessageResponse } from "@/rpc/types";
 import { deserializeResponse, MessageType } from "@/rpc/types";
 import type { ClientCmd, InfoResult, SerializableResponse } from "@/rpc/types";
@@ -49,12 +47,9 @@ function sendMessageFirefox<T>(msg: Message): Promise<T> {
 }
 
 function createAddonApi() {
-  const bowser = Bowser.getParser(window.navigator.userAgent);
-  const browser = bowser.getBrowserName(true);
-
-  if (browser === "chrome" || browser === "edge") {
+  if (import.meta.env.CHROME) {
     return { sendMessage: sendMessageChrome };
-  } else if (browser === "firefox") {
+  } else if (import.meta.env.FIREFOX) {
     return { sendMessage: sendMessageFirefox };
   } else {
     function sendMessageFallback<T>(msg: Message): Promise<T> {

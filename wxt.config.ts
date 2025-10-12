@@ -1,6 +1,6 @@
-import { defineConfig, UserManifest } from "wxt";
+import tailwindcss from "@tailwindcss/vite";
+import { defineConfig, UserManifest, type WxtViteConfig } from "wxt";
 
-// See https://wxt.dev/api/config.html
 export default defineConfig({
   modules: ["@wxt-dev/auto-icons", "@wxt-dev/module-vue"],
   imports: {
@@ -81,6 +81,9 @@ export default defineConfig({
     firefoxArgs: ["--devtools"],
     chromiumArgs: ["--auto-open-devtools-for-tabs"],
   },
+  vite: () => ({
+    plugins: [tailwindcss()],
+  } as WxtViteConfig),
   autoIcons: {
     baseIconPath: "assets/icon.svg",
     sizes: [128, 48, 38, 32, 19, 16],

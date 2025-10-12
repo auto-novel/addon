@@ -1,80 +1,49 @@
-:root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
+@import "tailwindcss";
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  -webkit-text-size-adjust: 100%;
-}
-
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
-}
-
-body {
-  margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
-}
-
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
-}
-
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
-}
-
-.card {
-  padding: 2em;
-}
-
-#app {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
-}
-
-@media (prefers-color-scheme: light) {
+/* https://m3.material.io/styles/color/roles */
+@layer base {
   :root {
-    color: #213547;
-    background-color: #ffffff;
+    --color-body: #ffffff;
+    --color-surface: #ffffff;
+    --color-on-surface: rgb(31, 34, 37);
+
+    --color-primary: #18a058;
+    --color-primary-hover: #36ad6a;
+    --color-primary-pressed: #0c7a43;
+    --color-on-primary: #ffffff;
+
+    --color-error: #d03050;
+    --color-outline: rgb(200, 200, 200);
+    --color-outline-variant: rgb(239, 239, 245);
   }
-  a:hover {
-    color: #747bff;
+
+  .dark {
+    --color-body: #101014;
+    --color-surface: #18181c;
+    --color-on-surface: rgba(255, 255, 255, 0.9);
+
+    --color-primary: #63e2b7;
+    --color-primary-hover: #7fe7c4;
+    --color-primary-pressed: #5acea7;
+    --color-on-primary: #000000;
+
+    --color-error: #e88080;
+    --color-outline: rgba(255, 255, 255, 0.24);
+    --color-outline-variant: rgba(255, 255, 255, 0.09);
   }
-  button {
-    background-color: #f9f9f9;
-  }
+}
+
+@theme {
+  --color-body: var(--color-body);
+  --color-surface: var(--color-surface);
+  --color-on-surface: var(--color-on-surface);
+
+  --color-primary: var(--color-primary);
+  --color-primary-hover: var(--color-primary-hover);
+  --color-primary-pressed: var(--color-primary-pressed);
+  --color-on-primary: var(--color-on-primary);
+
+  --color-error: var(--color-error);
+  --color-outline: var(--color-outline);
+  --color-outline-variant: var(--color-outline-variant);
 }

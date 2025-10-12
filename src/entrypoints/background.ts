@@ -103,4 +103,5 @@ export default defineBackground(() => {
     doRedirection();
     browser.runtime.openOptionsPage();
   });
+  browser.runtime.openOptionsPage();
 });

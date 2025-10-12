@@ -32,7 +32,7 @@ const label = computed(() => {
       :disabled="status === 'executing'"
       @click="emits('run')"
     >
-      执行测试
+      测试
     </button>
   </div>
 </template>

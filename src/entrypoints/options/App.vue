@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { onMounted, ref } from "vue";
+import { ref } from "vue";
 
 import Case from "./components/Case.vue";
 import Divider from "./components/Divider.vue";
@@ -18,16 +18,24 @@ const cases = ref<TestCase[]>([
   ),
 ]);
 
-onMounted(async () => {
+async function runAllTestCases() {
   for (const c of cases.value) {
     await Test.runTestCase(c);
   }
-});
+}
 </script>
 
 <template>
   <div class="m-auto max-w-160 flex flex-col my-12">
-    <h1 class="text-3xl font-bold text-gray-900 my-12">测试用例</h1>
+    <div class="flex items-center justify-between">
+      <h1 class="text-3xl font-bold text-gray-900 my-4">测试用例</h1>
+      <button
+        class="px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors"
+        @click="runAllTestCases"
+      >
+        运行所有测试
+      </button>
+    </div>
     <Divider />
     <template v-for="c in cases" :key="c.name">
       <Case :name="c.name" :status="c.status" @run="Test.runTestCase(c)" />

@@ -83,24 +83,11 @@ export default defineBackground(() => {
   browser.runtime.onMessage.addListener(messageFn);
   browser.runtime.onMessageExternal.addListener(messageFn);
 
-  browser.action.onClicked.addListener(async () => {
-    debugLog("Browser action clicked");
-    if (IS_DEBUG) {
-      try {
-        // FIXME(kuriko): 怎么可能又重定向又打开设置页的
-        const resp = await Api.tab_http_fetch(
-          "https://www.amazon.co.jp",
-          "https://www.amazon.co.jp/dp/4098505789",
-          {},
-        );
-        debugLog("http_fetch: ", resp);
-      } catch (e) {
-        debugLog.error("Error in browser action: ", e);
-      }
-      return;
-    }
-
+  browser.action.onClicked.addListener(() => {
     doRedirection();
-    browser.runtime.openOptionsPage();
   });
+
+  if (IS_DEBUG) {
+    browser.runtime.openOptionsPage();
+  }
 });

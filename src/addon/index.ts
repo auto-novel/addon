@@ -1,4 +1,9 @@
-import type { Message, MessageRequest, MessageResponse } from "@/rpc/types";
+import type {
+  Message,
+  MessageRequest,
+  MessageResponse,
+  TabFetchOptions,
+} from "@/rpc/types";
 import { deserializeResponse, MessageType } from "@/rpc/types";
 import type { ClientCmd, InfoResult, SerializableResponse } from "@/rpc/types";
 import { serializeRequest, serializeResponse } from "@/rpc/types";
@@ -141,7 +146,7 @@ export class AddonClient {
   }
 
   async tab_http_fetch(
-    tabUrl: string,
+    options: TabFetchOptions,
     input: Request | string | URL,
     requestInit?: RequestInit,
   ): Promise<Response> {
@@ -151,7 +156,7 @@ export class AddonClient {
     const serInput =
       typeof _input === "string" ? _input : await serializeRequest(_input);
     const msg = this.buildCrawlerMessage<ParamType>(cmd, {
-      tabUrl,
+      options,
       input: serInput,
       requestInit,
     });

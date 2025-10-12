@@ -1,4 +1,5 @@
 import { AddonClient } from "@/addon";
+import { TabFetchOptions } from "@/rpc/types";
 
 export const Addon = {
   makeCookiesPublic(
@@ -29,12 +30,12 @@ export const Addon = {
   },
 
   tabFetch(
-    tabUrl: string,
+    options: TabFetchOptions,
     input: string | URL | Request,
     init?: RequestInit,
   ): Promise<Response> {
     const addon = new AddonClient();
-    return addon.tab_http_fetch(tabUrl, input, init);
+    return addon.tab_http_fetch(options, input, init);
   },
 
   async spoofFetch(

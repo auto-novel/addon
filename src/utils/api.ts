@@ -3,6 +3,7 @@ import {
   SerializableRequest,
   SerializableResponse,
   serializeResponse,
+  TabFetchOptions,
 } from "@/rpc/types";
 import { browserRemoteExecution, extractUrl } from "@/utils/tools";
 import { tabResMgr } from "@/utils/resource";
@@ -36,17 +37,19 @@ export async function tab_dom_querySelectorAll(
 }
 
 export async function tab_http_fetch(
-  tabUrl: string,
+  options: TabFetchOptions,
   input: SerializableRequest | string,
   requestInit?: RequestInit,
 ): Promise<SerializableResponse> {
+  const { tabUrl, forceNewTab } = options;
+
   const bypassParams: BypassParams = {
     requestUrl: extractUrl(input),
     // incase of `Referrer Policystrict-origin-when-cross-origin`
     // origin: new URL(tabUrl).origin,
   };
 
-  const tab = await tabResMgr.findOrCreateTab(tabUrl);
+  const tab = await tabResMgr.findOrCreateTab(tabUrl, { forceNewTab });
   if (tab.id == null) throw newError(`Tab has no id: ${tab}`);
 
   await local_install_bypass(tab.id, bypassParams);

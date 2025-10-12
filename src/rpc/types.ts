@@ -135,6 +135,11 @@ export type BypassParams = {
   referer?: string;
 };
 
+export type TabFetchOptions = {
+  tabUrl: string;
+  forceNewTab?: boolean;
+};
+
 export type ClientCmd = {
   "base.ping"(): Promise<string>;
   "base.info"(): Promise<InfoResult>;
@@ -160,7 +165,7 @@ export type ClientCmd = {
 
   "tab.http.fetch"(
     params: {
-      tabUrl: string;
+      options: TabFetchOptions;
       input: SerializableRequest | string;
       requestInit?: RequestInit;
     },

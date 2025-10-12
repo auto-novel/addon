@@ -99,27 +99,42 @@ export class TabResMgr {
     });
   }
 
-  async findOrCreateTab(url: string): Promise<Tab> {
+  async findOrCreateTab(
+    url: string,
+    options?: { forceNewTab?: boolean },
+  ): Promise<Tab> {
     debugLog(`[TabResMgr] findOrCreateTab: ${url}`);
     const normalizedUrl = new URL(url);
     url = normalizedUrl.toString();
 
-    const tabs = await browser.tabs.query({ url });
-    // FIXME(kuriko): 如果用户此时手动关闭了标签页怎么办？
-    let tab;
-    if (tabs.length > 0) {
-      tab = tabs[0];
-    } else {
-      tab = await browser.tabs.create({
+    const createNewTabFn = async (): Promise<Tab> => {
+      const tabRet = await browser.tabs.create({
         url,
         active: false,
       });
       // 对于 Create 出来的标签页，由插件负责关闭。
-      if (!tab.id) throw newError(`Tab has no id: ${url}`);
-      this.tabState.set(tab.id, {
-        tabId: tab.id,
+      if (!tabRet.id) throw newError(`Tab has no id: ${url}`);
+      this.tabState.set(tabRet.id, {
+        tabId: tabRet.id,
         refCount: 0,
       });
+      return tabRet;
+    };
+
+    let tab;
+    if (options?.forceNewTab) {
+      tab = await createNewTabFn();
+    } else {
+      const tabs = await browser.tabs.query({ url });
+      if (tabs.length > 0) {
+        tab = tabs[0];
+      }
+      // FIXME(kuriko): 如果用户此时手动关闭了标签页怎么办？
+      if (tabs.length > 0) {
+        tab = tabs[0];
+      } else {
+        tab = await createNewTabFn();
+      }
     }
     tab = await this.waitAnyTab(tab);
 

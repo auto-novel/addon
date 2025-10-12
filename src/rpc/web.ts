@@ -37,8 +37,8 @@ const METHODS: ClientCmd = {
     return await Api.http_fetch(final_input, requestInit);
   },
 
-  "tab.http.fetch": async ({ tabUrl, input, requestInit }) =>
-    await Api.tab_http_fetch(tabUrl, input, requestInit),
+  "tab.http.fetch": async ({ options, input, requestInit }) =>
+    await Api.tab_http_fetch(options, input, requestInit),
 
   "tab.dom.querySelectorAll": async ({ url, selector }) =>
     await Api.tab_dom_querySelectorAll(url, selector),

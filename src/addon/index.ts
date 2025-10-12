@@ -6,6 +6,7 @@ import { serializeRequest, serializeResponse } from "@/rpc/types";
 function sendMessageChrome<T>(msg: Message): Promise<T> {
   const addonId = "kenigjdcpndlkomhegjcepokcgikpdki";
   return new Promise((resolve, reject) => {
+    console.debug(msg);
     browser.runtime.sendMessage(addonId, msg, (response: MessageResponse) => {
       if (browser.runtime.lastError) {
         console.error(
@@ -22,6 +23,7 @@ function sendMessageChrome<T>(msg: Message): Promise<T> {
 
 function sendMessageFirefox<T>(msg: Message): Promise<T> {
   // const addonId = 'addon@n.novelia.cc';
+  console.debug(msg);
   return new Promise<T>((resolve, reject) => {
     const listener = (event: MessageEvent) => {
       if (event.source !== window) {
@@ -34,6 +36,7 @@ function sendMessageFirefox<T>(msg: Message): Promise<T> {
       if (resp.id != msg.id) return;
 
       window.removeEventListener("message", listener);
+      console.debug(resp.payload);
       if (resp.payload.success) {
         return resolve(resp.payload.result);
       } else {
@@ -171,6 +174,20 @@ export class AddonClient {
     const cmd = "cookies.getStr";
     type ParamType = Parameters<ClientCmd[typeof cmd]>[0];
     const msg = this.buildCrawlerMessage<ParamType>(cmd, { url });
+    return await api.sendMessage(msg);
+  }
+
+  async cookies_get(domain: string): Promise<Browser.cookies.Cookie[]> {
+    const cmd = "cookies.get";
+    type ParamType = Parameters<ClientCmd[typeof cmd]>[0];
+    const msg = this.buildCrawlerMessage<ParamType>(cmd, { domain });
+    return await api.sendMessage(msg);
+  }
+
+  async cookies_set(cookies: Browser.cookies.Cookie[]): Promise<void> {
+    const cmd = "cookies.set";
+    type ParamType = Parameters<ClientCmd[typeof cmd]>[0];
+    const msg = this.buildCrawlerMessage<ParamType>(cmd, { cookies });
     return await api.sendMessage(msg);
   }
 

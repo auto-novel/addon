@@ -13,6 +13,7 @@ import { redirectToAutoNovel } from "./redirect";
 
 export default defineBackground(() => {
   debugLog.info(`CSC debug mode: ${IS_DEBUG}`);
+
   rulesMgr.clear();
 
   browser.alarms.onAlarm.addListener(alarmLisener);

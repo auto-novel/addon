@@ -8,8 +8,6 @@ import { browserRemoteExecution, extractUrl } from "@/utils/tools";
 import { tabResMgr } from "@/utils/resource";
 import setCookie from "set-cookie-parser";
 
-type Tab = Browser.tabs.Tab;
-
 // ==========================================================================
 export async function http_fetch(
   input: Request | string | URL,
@@ -58,7 +56,7 @@ export async function tab_http_fetch(
     target: { tabId: tab.id },
     func: async (
       input: SerializableRequest | string,
-      requestInit?: RequestInit,
+      requestInit: RequestInit | null,
     ) => {
       // Copied from types.ts
       function deserializeRequest(req: SerializableRequest): RequestInfo {
@@ -122,12 +120,13 @@ export async function tab_http_fetch(
       }
 
       const _input = SerReq2RequestInfo(input);
-      const ret = await fetch(_input, requestInit);
+      const ret = await fetch(_input, requestInit || undefined);
       const respSer = await Response2SerResp(ret);
       console.debug("tab_http_fetch response: ", respSer);
       return respSer;
     },
-    args: [input, requestInit],
+    // undefined is not transferable
+    args: [input, requestInit ?? null],
   });
   await local_uninstall_bypass(tab.id, bypassParams);
   await tabResMgr.releaseTab(tab.id);
@@ -135,9 +134,48 @@ export async function tab_http_fetch(
 }
 
 export async function cookies_get(
-  url: string,
+  domain: string,
 ): Promise<Browser.cookies.Cookie[]> {
-  return await browser.cookies.getAll({ url });
+  const cookies = await browser.cookies.getAll({ domain });
+  debugLog("cookies_get", domain, cookies);
+  return cookies;
+}
+
+export async function cookies_set(
+  cookies: Browser.cookies.Cookie[],
+): Promise<void> {
+  const rebuildUrl = (cookie: Browser.cookies.Cookie) => {
+    const protocol = cookie.secure ? "https://" : "http://";
+    const domain = cookie.domain.startsWith(".")
+      ? cookie.domain.substring(1)
+      : cookie.domain;
+    const url = `${protocol}${domain}${cookie.path}`;
+    return url;
+  };
+
+  const promises = cookies.map((cookie) => {
+    const setDetail: Browser.cookies.SetDetails = {
+      url: rebuildUrl(cookie),
+      name: cookie.name,
+      value: cookie.value,
+      domain: cookie.domain,
+      path: cookie.path,
+      secure: cookie.secure,
+      httpOnly: cookie.httpOnly,
+      sameSite: cookie.sameSite,
+      storeId: cookie.storeId,
+      ...(cookie.expirationDate && { expirationDate: cookie.expirationDate }),
+    };
+    try {
+      return browser.cookies.set(setDetail);
+    } catch (e) {
+      debugLog.warn(
+        `Failed to restore cookie: ${setDetail.name} for domain ${setDetail.domain}`,
+        e,
+      );
+    }
+  });
+  await Promise.all(promises);
 }
 
 export async function cookies_getStr(url: string): Promise<string> {
@@ -216,6 +254,7 @@ export async function local_install_bypass(
   const tabUrl = tab.url ?? tab.pendingUrl;
   if (!tabUrl) throw newError(`Tab has no url: ${tab}`);
   await Promise.all([
+    // cookiesUtils.overrideSameSite(requestUrl),
     installSpoofRules(tabId, requestUrl, _origin, _referer),
     installCORSRules(tabId, tabUrl),
   ]);

@@ -43,20 +43,20 @@ export default defineConfig({
         "declarativeNetRequestWithHostAccess",
       ],
       host_permissions: [
-        "https://*.novelia.cc/*",
-        "https://*.fishhawk.top/*",
+        "*://*.novelia.cc/*",
+        "*://*.fishhawk.top/*",
 
-        "https://*.baidu.com/*",
-        "https://*.youdao.com/*",
-        "https://*.openai.com/*",
-        "https://*.amazon.co.jp/*",
-        "https://kakuyomu.jp/*",
-        "https://*.syosetu.com/*",
-        "https://novelup.plus/*",
-        "https://syosetu.org/*",
-        "https://*.pixiv.net/*",
-        "https://*.alphapolis.co.jp/*",
-        "https://novelism.jp/*",
+        "*://*.baidu.com/*",
+        "*://*.youdao.com/*",
+        "*://*.openai.com/*",
+        "*://*.amazon.co.jp/*",
+        "*://kakuyomu.jp/*",
+        "*://*.syosetu.com/*",
+        "*://novelup.plus/*",
+        "*://syosetu.org/*",
+        "*://*.pixiv.net/*",
+        "*://*.alphapolis.co.jp/*",
+        "*://novelism.jp/*",
       ],
     };
 
@@ -68,7 +68,7 @@ export default defineConfig({
         gecko: {
           id: "addon@n.novelia.cc",
         },
-      }
+      };
     } else {
       throw new Error(`不支持的浏览器类型: ${browser}`);
     }
@@ -80,9 +80,10 @@ export default defineConfig({
     firefoxArgs: ["--devtools"],
     chromiumArgs: ["--auto-open-devtools-for-tabs", "--start-maximized"],
   },
-  vite: () => ({
-    plugins: [tailwindcss()],
-  } as WxtViteConfig),
+  vite: () =>
+    ({
+      plugins: [tailwindcss()],
+    }) as WxtViteConfig,
   autoIcons: {
     baseIconPath: "assets/icon.svg",
     sizes: [128, 48, 38, 32, 19, 16],

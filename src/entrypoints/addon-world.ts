@@ -1,6 +1,28 @@
 import { AddonClient } from "@/addon";
 
 export const Addon = {
+  makeCookiesPublic(
+    cookies: Browser.cookies.Cookie[],
+  ): Browser.cookies.Cookie[] {
+    return cookies.map((cookie) => {
+      if (cookie.sameSite !== "no_restriction" || !cookie.secure) {
+        cookie.sameSite = "no_restriction";
+        cookie.secure = true;
+      }
+      return cookie;
+    });
+  },
+
+  cookiesGet(url: string): Promise<Browser.cookies.Cookie[]> {
+    const addon = new AddonClient();
+    return addon.cookies_get(url);
+  },
+
+  cookiesSet(cookies: Browser.cookies.Cookie[]): Promise<void> {
+    const addon = new AddonClient();
+    return addon.cookies_set(cookies);
+  },
+
   fetch(input: string | URL | Request, init?: RequestInit): Promise<Response> {
     const addon = new AddonClient();
     return addon.http_fetch(input, init);
@@ -21,7 +43,6 @@ export const Addon = {
     init?: RequestInit,
   ): Promise<Response> {
     const addon = new AddonClient();
-    console.log(await addon.info());
     let url;
     if (typeof input === "string") {
       url = input;
@@ -37,13 +58,12 @@ export const Addon = {
       referer: origin + "/",
     });
 
-    const headers = new Headers(init?.headers || {});
-    // headers.set("credentials", "include");
-    init = {
-      ...init,
-      headers,
-    };
-    const resp = await fetch(input, init);
+    // const headers = new Headers(init?.headers || {});
+    // init = {
+    //   ...init,
+    //   headers,
+    // };
+    const resp = await fetch(input, init ?? {});
 
     await addon.bypass_disable({
       requestUrl: url,

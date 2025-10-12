@@ -46,7 +46,9 @@ const METHODS: ClientCmd = {
   "cookies.setFromResponse": async ({ response }) =>
     await Api.cookies_setFromSerResp(response),
 
-  "cookies.get": async ({ url }) => await Api.cookies_get(url),
+  "cookies.get": async ({ domain }) => await Api.cookies_get(domain),
 
   "cookies.getStr": async ({ url }) => await Api.cookies_getStr(url),
+
+  "cookies.set": async ({ cookies }) => await Api.cookies_set(cookies),
 };

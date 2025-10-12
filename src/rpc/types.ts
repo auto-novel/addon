@@ -175,9 +175,17 @@ export type ClientCmd = {
     env: EnvType,
   ): Promise<string[]>;
 
-  "cookies.get"(params: { url: string }, env: EnvType): Promise<any[]>;
+  "cookies.get"(
+    params: { domain: string },
+    env: EnvType,
+  ): Promise<Browser.cookies.Cookie[]>;
 
   "cookies.getStr"(params: { url: string }, env: EnvType): Promise<string>;
+
+  "cookies.set"(
+    params: { cookies: Browser.cookies.Cookie[] },
+    env: EnvType,
+  ): Promise<void>;
 
   "cookies.setFromResponse"(
     params: { response: SerializableResponse },

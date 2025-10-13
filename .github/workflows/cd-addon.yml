@@ -13,7 +13,7 @@ permissions:
   contents: write
 
 jobs:
-  build-and-push:
+  build-and-release:
     runs-on: ubuntu-latest
 
     steps:
@@ -30,7 +30,7 @@ jobs:
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
 
       - name: Zip extensions
         run: |
@@ -38,10 +38,20 @@ jobs:
           pnpm zip:firefox
           rm .output/*-sources.zip
 
+      - name: Generate release metadata
+        id: metadata
+        run: |
+          # 动态生成发布标题，格式：Nightly Build (YYYY-MM-DD)
+          echo "release_name=Nightly Build ($(date +'%Y-%m-%d'))" >> $GITHUB_OUTPUT
+          # 获取短格式的 commit hash
+          echo "short_sha=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
+
       - uses: softprops/action-gh-release@v2
         with:
           prerelease: true
-          overwrite_files: true
+          make_latest: true
+          overwrite: true
+          name: ${{ steps.metadata.outputs.release_name }}
           tag_name: nightly
           body_path: .github/release.md
           files: |

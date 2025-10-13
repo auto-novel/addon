@@ -19,9 +19,12 @@ const cases = ref<TestCase[]>([
 ]);
 
 async function runAllTestCases() {
-  // for (const c of cases.value) {
-  //   await Test.runTestCase(c);
-  // }
+  for (const c of cases.value) {
+    await Test.runTestCase(c);
+  }
+}
+
+async function runAllTestCasesParallel() {
   await Promise.all(
     cases.value.map((c: any) => {
       return Test.runTestCase(c);
@@ -32,13 +35,20 @@ async function runAllTestCases() {
 
 <template>
   <div class="m-auto max-w-160 flex flex-col my-12">
-    <div class="flex items-center justify-between">
+    <div class="flex items-center">
       <h1 class="text-3xl font-bold text-gray-900 my-4">测试用例</h1>
+      <div class="flex-1" />
       <button
-        class="px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors"
+        class="px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors mr-4"
         @click="runAllTestCases"
       >
         运行所有测试
+      </button>
+      <button
+        class="px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors"
+        @click="runAllTestCasesParallel"
+      >
+        并行运行所有测试
       </button>
     </div>
     <Divider />

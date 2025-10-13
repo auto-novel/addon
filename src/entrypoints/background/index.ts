@@ -6,9 +6,9 @@ import {
   type Message,
 } from "@/rpc/types";
 import { dispatchCommand } from "@/rpc/web";
-import { alarmLisener } from "@/utils/alarm";
 import { IS_DEBUG } from "@/utils/consts";
 import { debugLog } from "@/utils/tools";
+import { alarmLisener } from "./alarm";
 import { redirectToAutoNovel } from "./redirect";
 
 export default defineBackground(() => {
@@ -82,9 +82,7 @@ export default defineBackground(() => {
   browser.runtime.onMessage.addListener(messageFn);
   browser.runtime.onMessageExternal.addListener(messageFn);
 
-  browser.action.onClicked.addListener(() => {
-    redirectToAutoNovel();
-  });
+  browser.action.onClicked.addListener(redirectToAutoNovel);
 
   if (IS_DEBUG) {
     browser.runtime.openOptionsPage();

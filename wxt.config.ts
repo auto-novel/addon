@@ -8,19 +8,11 @@ export default defineConfig({
   },
   manifestVersion: 3,
   manifest: ({ browser }) => {
-    const userManifest: UserManifest = {
+    let userManifest: UserManifest = {
       name: "轻小说机翻机器人",
       homepage_url: "https://n.novelia.cc/",
       action: {
         default_title: "轻小说机翻站用户侧爬虫插件",
-      },
-      externally_connectable: {
-        matches: [
-          "*://*.novelia.cc/*",
-          "*://*.fishhawk.top/*",
-          "*://localhost/*",
-          "*://example.com/*",
-        ],
       },
       web_accessible_resources: [
         {
@@ -61,12 +53,25 @@ export default defineConfig({
     };
 
     if (browser === "chrome") {
-      userManifest.key =
-        "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAmzpvkqphjS1Od8waHDo12FnmcE7+QkzVTr/MKtv64UzlDhF54W8nJR2v4qWy+gHzJkf6QakEELfE4jOJAdOPxNQFd8YgEvsYk8Acfo9Pyki/3jpBB8dzDemAjABNasNGyd9RIHdOuZd2Evl+0NyUNHaCSzSgPJBcGZzg8ACfp8VGhPltiNlxy/JXQJZStR35fiFndC3WP9qaeztLy+jeg5ieQY8ULNLgJDbL02S1KEIB0ijaR9CICaiSYsPFdPhMlYdR8kYhHhrRfXljoJPw4LH0ThMrOoeNWHI6DgO/qSXgSDx4LknOJ28UPCEqHTkPo6WTDDNLpDhFG3ZwMbpHmQIDAQAB";
+      userManifest = {
+        ...userManifest,
+        key: "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAmzpvkqphjS1Od8waHDo12FnmcE7+QkzVTr/MKtv64UzlDhF54W8nJR2v4qWy+gHzJkf6QakEELfE4jOJAdOPxNQFd8YgEvsYk8Acfo9Pyki/3jpBB8dzDemAjABNasNGyd9RIHdOuZd2Evl+0NyUNHaCSzSgPJBcGZzg8ACfp8VGhPltiNlxy/JXQJZStR35fiFndC3WP9qaeztLy+jeg5ieQY8ULNLgJDbL02S1KEIB0ijaR9CICaiSYsPFdPhMlYdR8kYhHhrRfXljoJPw4LH0ThMrOoeNWHI6DgO/qSXgSDx4LknOJ28UPCEqHTkPo6WTDDNLpDhFG3ZwMbpHmQIDAQAB",
+        externally_connectable: {
+          matches: [
+            "*://*.novelia.cc/*",
+            "*://*.fishhawk.top/*",
+            "*://localhost/*",
+            "*://example.com/*",
+          ],
+        },
+      };
     } else if (browser === "firefox") {
-      userManifest.browser_specific_settings = {
-        gecko: {
-          id: "addon@n.novelia.cc",
+      userManifest = {
+        ...userManifest,
+        browser_specific_settings: {
+          gecko: {
+            id: "addon@n.novelia.cc",
+          },
         },
       };
     } else {

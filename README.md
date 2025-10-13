@@ -1,195 +1,68 @@
-# 轻小说机翻站用户侧爬虫 Chrome 插件
+# Addon
 
-> [!note]
-> 使用本插件爬取内容仅限于个人学习和研究目的，请遵守所在国家和地区的法律法规。
+这是一个用于轻小说机翻站的用户侧 Chrome 插件，旨在扩展机翻站的功能，例如翻译、智能导入、前端爬虫。
 
-这是一个用于轻小说机翻站的用户侧爬虫 Chrome 插件，旨在帮助用户从特定网站上抓取和处理轻小说内容。
-该插件通过监听网页中的消息事件，处理爬虫请求，并将结果返回给网页。
+## 安装
 
+### Chrome
 
+- 下载 `addon-${version}-chrome.zip` 文件，右键解压到文件夹。
+- 打开 Chrome 浏览器，进入 `chrome://extensions/` 页面。
+- 打开 `开发者模式`，选择 `加载已解压的扩展程序`，选择解压的目录（包含 `manifest.json` 文件）。
+- 安装后不能删除解压目录。
 
-## 使用方法
+### Edge
 
-### 命令报文
+Edge 浏览器和 Chrome 类似。
 
-```typescript
-export enum MSG_TYPE {
-  CRAWLER_REQ = "AUTO_NOVEL_CRAWLER_REQUEST",  // 发起爬虫请求
-  RESPONSE = "AUTO_NOVEL_CRAWLER_RESPONSE",    // 爬虫请求的响应
-  PING = "AUTO_NOVEL_CRAWLER_PING"             // 测试用命令
-}
+### Firefox
 
-interface BaseMessage {
-  id: string;             // 消息 ID，在多命令发射时用于匹配响应
-  type: MSG_TYPE;
-}
+- 下载 `addon-${version}-firefox.zip`。
+- 打开 Firefox 浏览器，进入 `about:debugging#/runtime/this-firefox` 页面。
+- 点击 `临时加载附加组件` 按钮，选择之前下载的 zip 文件。
+- 安装后不能删除 zip 文件，每次打开浏览器都需要重新加载。
 
-export interface MSG_CRAWLER extends BaseMessage {
-  type: MSG_TYPE.CRAWLER_REQ;
-  payload: AutoNovelCrawlerCommand;
-}
+### 移动端
 
-export interface MSG_RESPONSE extends BaseMessage {
-  type: MSG_TYPE.RESPONSE;
-  payload: ResponsePayload;
-}
+想在手机上安装插件翻译的朋友，可以试试 Kiwi、Yandex 等浏览器，安装步骤和 Chrome 类似，注意下载请到官网下载。
 
-export type ResponsePayload = {
-  success: boolean;
-  result?: any;
-  error?: string;
-};
+## API
 
-export type Message = MSG_PING | MSG_CRAWLER | MSG_RESPONSE;
-
-export type AutoNovelCrawlerCommand = {
-  base_url: string;                    // 基础 URL，用于创建后台页面，可以认为是 Host
-  single?: boolean;                    // 是否为单次请求，true 则请求完成后关闭 tab
-  cmd: keyof ClientMethods;            // 爬虫命令
-  data?: any;                          // 爬虫参数
-};
-
-// 目前支持的爬虫命令：请以最新的 msg.ts 为准
-// 其中 `tab_*` 代表使用 debugger api 在目标 tab 上操作。
-export type ClientMethods = {
-  "http.raw"(params: HttpRawParams): Promise<HttpRawResult>;
-  "http.get"(params: HttpGetParams): Promise<HttpGetResult>;
-  "http.postJson"(params: HttpPostJsonParams): Promise<HttpPostJsonResult>;
-
-  "tab.switchTo"(params: TabSwitchToParams): Promise<TabSwitchToResult>;
-  "tab.http.get"(params: TabHttpGetParams): Promise<TabHttpGetResult>;
-  "tab.http.postJson"(params: TabHttpPostJsonParams): Promise<TabHttpPostJsonResult>;
-  "tab.dom.querySelectorAll"(params: DomQuerySelectorAllParams): Promise<DomQuerySelectorAllResult>;
-
-  "cookies.get"(params: CookiesGetParams): Promise<CookiesGetResult>;
-  // 在 base_url 页面执行 querySelectorAll，支持 SPA 页面。
-  "dom.querySelectorAll"(params: DomQuerySelectorAllParams): Promise<DomQuerySelectorAllResult>;
-  // 用于关闭调试器和清理
-  "job.quit"(params: JobQuitParams): Promise<JobQuitResult>;
-};
-```
-
-### 调用方法
-
-> 请注意将 extension id 替换为实际的 id。
-
-```javascript
-chrome.runtime.sendMessage(
-  "heaclbjdecgjhkbeigpkgoboipadjalj",
-  {
-    type: "AUTO_NOVEL_CRAWLER_PING"
-  },
-  (e) => console.log(e)
-);
-
-chrome.runtime.sendMessage(
-  "heaclbjdecgjhkbeigpkgoboipadjalj",
-  {
-    type: "AUTO_NOVEL_CRAWLER_REQUEST",
-    payload: {
-      base_url: "https://www.pixiv.net/novel/show.php?id=20701122",
-      cmd: "tab.dom.querySelectorAll",
-      data: { selector: "main" }
-    }
-  },
-  (e) => console.log(e)
-);
-```
-
-
-### 调用方法（调试用，旧方法，已废弃）
+插件会将扩展函数挂载到 `window.Addon` 上，类型如下：
 
 ```typescript
-// 命令：对 机翻站（SPA 站）进行 dom 查询
-window.postMessage({
-  type: "AUTO_NOVEL_CRAWLER_REQUEST",
-  payload: {
-      base_url: "https://n.novelia.cc/",
-      cmd: "dom.querySelectorAll",
-      data: { selector: "body" }
-  }},"*");
+type Cookie = browser.cookies.Cookie[];
 
-// 命令：对 机翻站（SPA 站）进行 dom 查询
-window.postMessage({
-  type: "AUTO_NOVEL_CRAWLER_REQUEST",
-  payload: {
-      base_url: "https://n.novelia.cc/",
-      cmd: "dom.querySelectorAll",
-      data: { selector: "body" }
-  }},"*");
+interface AddonApi {
+  makeCookiesPublic(cookies: Cookie[]): Cookie[];
 
-// 命令：直接执行 http get 操作，对于 SPA 站只能获取裸 html
-// 注意，base_url 为空时会替换为 data.url
-window.postMessage({
-  type: "AUTO_NOVEL_CRAWLER_REQUEST",
-  payload: {
-    base_url: "",
-    cmd: "http.get",
-    data: { url: "https://n.novelia.cc/" } }
-}, "*");
-// ---------------------------------------------------------------------------------
-// 监听结果
-window.addEventListener("message", (event) => {
-  if (event.source !== window && event.type != "AUTO_NOVEL_CRAWLER_RESPONSE") return;
-  console.log("[AutoNovel] received message:", event.data);
-}, false);
+  cookiesGet(url: string): Promise<Cookie[]>;
+  cookiesSet(cookies: Cookie[]): Promise<void>;
 
+  fetch(input: string | URL | Request, init?: RequestInit): Promise<Response>;
+  tabFetch(
+    options: { tabUrl: string; forceNewTab?: boolean },
+    input: string | URL | Request,
+    init?: RequestInit,
+  ): Promise<Response>;
+  spoofFetch(
+    baseUrl: string,
+    input: string | URL | Request,
+    init?: RequestInit,
+  ): Promise<Response>;
+}
+
+declare global {
+  interface Window {
+    Addon?: AddonApi;
+  }
+}
 ```
-
-
 
 ## 开发说明
 
 ```shell
 > pnpm install  # 安装依赖
 > pnpm prepare  # 设置 husky git hooks
-> pnpm dev      # 使用 extension.js 框架开发
+> pnpm dev      # 打开调试浏览器
 ```
-
-
-
-
-
-
-## 权限和安全声明
-
-目前本插件**不会**上传任何数据到服务器，完全本地操作。
-
-获取的数据会传送到机翻站页面，并通过机翻站自身接口上传到服务器。
-
-
-
-**该插件请求以下权限**：
-
-- `tabs`：用于创建后台网页，加载目标网站。
-
-- `scripting`：用于在网页中注入脚本并执行代码。
-
-- `storage`：暂未使用。
-
-- `cookies`：获取目标网站的 `cookies`。
-
-- `debugger`：用于在目标网站域内执行操作，绕过浏览器权限限制。
-
-  - 相关 API 调用见 `utils/api.ts` 中 `tab_*` 系列函数。
-
-
-
-**该插件会访问如下网站内容**：
-
-- 机翻站
-  - "\*://n.novelia.cc/\*",
-  - "\*://\*.fishhawk.top/\*",
-- 目标站
-  - "\*://\*.syosetu.com/\*",
-- 测试用
-  - "\*://example.com/\*"
-
-由于插件使用了 `debugger` 权限，可能会被浏览器标记为不安全插件。
-
-如果您发现了本插件存在任何**安全问题**或者**远程执行漏洞**，请及时联系 AutoNovel 团队。
-
-
-## TODO
-
-- [ ] 考虑迁移到 `https://www.npmjs.com/package/chrome-debugging-client` 库

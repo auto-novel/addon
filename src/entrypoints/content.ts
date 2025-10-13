@@ -35,7 +35,7 @@ export default defineContentScript({
     }
 
     debugLog("Injecting Addon into web page.");
-    await injectScript("/addon-world.js", {
+    await injectScript("/inject.js", {
       keepInDom: true,
     });
   },

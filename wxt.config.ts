@@ -16,7 +16,7 @@ export default defineConfig({
       },
       web_accessible_resources: [
         {
-          resources: ["addon-world.js"],
+          resources: ["inject.js"],
           matches: [
             "https://*.novelia.cc/*",
             "https://*.fishhawk.top/*",

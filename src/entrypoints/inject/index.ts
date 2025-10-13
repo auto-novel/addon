@@ -1,5 +1,6 @@
-import { AddonClient } from "@/addon";
 import { TabFetchOptions } from "@/rpc/types";
+
+import { AddonClient } from "./client";
 
 export const Addon = {
   makeCookiesPublic(

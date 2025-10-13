@@ -1,30 +1,5 @@
 import { type SerializableRequest } from "@/rpc/types";
 
-export function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-export async function waitOrTimeout<T>(
-  task: Promise<T>,
-  timeout: number,
-): Promise<T> {
-  const ctl = new AbortController();
-  let ret: T | null = null;
-  return await Promise.race([
-    (async () => {
-      ret = await task;
-      ctl.abort();
-      return ret;
-    })(),
-    sleep(timeout).then(() => {
-      if (ctl.signal.aborted) {
-        return ret as T;
-      }
-      return Promise.reject("Timeout");
-    }),
-  ]);
-}
-
 type BrowserRemoteExecutionOptions<T, A extends any[]> = {
   target: Browser.scripting.InjectionTarget;
   func: (...args: A) => T | Promise<T>;

@@ -1,5 +1,6 @@
 import { MessageType } from "@/rpc/types";
 
+// Firefox 不支持 MAIN 域直接向插件发送消息，需要通过 content script 转发
 function forwardMessageToAddon() {
   window.addEventListener("message", (event) => {
     if (event.source !== window) {

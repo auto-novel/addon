@@ -1,5 +1,8 @@
 # Addon
 
+[![GPL-3.0](https://img.shields.io/github/license/auto-novel/addon)](https://github.com/auto-novel/addon#license)
+[![cd-addon](https://github.com/auto-novel/addon/actions/workflows/cd-addon.yml/badge.svg)](https://github.com/auto-novel/addon/actions/workflows/cd-addon.yml)
+
 这是一个用于轻小说机翻站的用户侧 Chrome/Firefox 插件(Manifest v3)，
 旨在扩展机翻站的功能，例如第三方翻译、智能导入、前端爬虫。
 

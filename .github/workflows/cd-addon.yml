@@ -41,18 +41,22 @@ jobs:
       - name: Generate release metadata
         id: metadata
         run: |
-          # 动态生成发布标题，格式：Nightly Build (YYYY-MM-DD)
-          echo "release_name=Nightly Build ($(date +'%Y-%m-%d'))" >> $GITHUB_OUTPUT
-          # 获取短格式的 commit hash
-          echo "short_sha=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
+          if [[ ${{ github.ref_type }} == tag ]]; then
+            echo "prerelease=false" >> $GITHUB_OUTPUT
+            echo "release_name=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+            echo "tag_name=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          else
+            echo "prerelease=true" >> $GITHUB_OUTPUT
+            echo "release_name=Nightly Build ($(date +'%Y-%m-%d'))" >> $GITHUB_OUTPUT
+            echo "tag_name=nightly" >> $GITHUB_OUTPUT
+          fi
 
       - uses: softprops/action-gh-release@v2
         with:
-          prerelease: true
-          make_latest: true
-          overwrite: true
+          prerelease: ${{ steps.metadata.outputs.prerelease }}
+          make_latest: ${{ steps.metadata.outputs.prerelease != 'true' }}
+          overwrite: ${{ steps.metadata.outputs.prerelease == 'true' }}
           name: ${{ steps.metadata.outputs.release_name }}
-          tag_name: nightly
-          body_path: .github/release.md
+          tag_name: ${{ steps.metadata.outputs.tag_name }}
           files: |
             .output/addon-*.zip

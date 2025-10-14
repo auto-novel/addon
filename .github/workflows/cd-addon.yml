@@ -4,6 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
+    tags: [v*]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-addon
@@ -41,11 +42,13 @@ jobs:
       - name: Generate release metadata
         id: metadata
         run: |
-          if [[ ${{ github.ref_type }} == tag ]]; then
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            echo "Release ${{ github.ref_name }}"
             echo "prerelease=false" >> $GITHUB_OUTPUT
             echo "release_name=${{ github.ref_name }}" >> $GITHUB_OUTPUT
             echo "tag_name=${{ github.ref_name }}" >> $GITHUB_OUTPUT
           else
+            echo "Prerelease nightly"
             echo "prerelease=true" >> $GITHUB_OUTPUT
             echo "release_name=Nightly Build ($(date +'%Y-%m-%d'))" >> $GITHUB_OUTPUT
             echo "tag_name=nightly" >> $GITHUB_OUTPUT
@@ -55,7 +58,7 @@ jobs:
         with:
           prerelease: ${{ steps.metadata.outputs.prerelease }}
           make_latest: ${{ steps.metadata.outputs.prerelease != 'true' }}
-          overwrite: ${{ steps.metadata.outputs.prerelease == 'true' }}
+          overwrite_files: ${{ steps.metadata.outputs.prerelease == 'true' }}
           name: ${{ steps.metadata.outputs.release_name }}
           tag_name: ${{ steps.metadata.outputs.tag_name }}
           files: |

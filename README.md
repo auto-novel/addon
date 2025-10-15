@@ -6,8 +6,6 @@
 这是一个用于轻小说机翻站的用户侧 Chrome/Firefox 插件(Manifest v3)，
 旨在扩展机翻站的功能，例如第三方翻译、智能导入、前端爬虫。
 
-
-
 ## 安装
 
 打开最新版本的[发布页](https://github.com/auto-novel/addon/releases/latest)，下载和浏览器对应的 zip 文件。
@@ -47,10 +45,16 @@
 type Cookie = browser.cookies.Cookie[];
 
 interface AddonApi {
-  makeCookiesPublic(cookies: Cookie[]): Cookie[];
+  cookiesStatus(params: {
+    url?: string;
+    domain?: string;
+    keys: string[] | '*';
+  }): Promise<Record<string, CookieStatus>>;
 
-  cookiesGet(url: string): Promise<Cookie[]>;
-  cookiesSet(cookies: Cookie[]): Promise<void>;
+  cookiesPatch(params: {
+    url: string;
+    patches: Record<string, CookieStatus>;
+  }): Promise<void>;
 
   fetch(input: string | URL | Request, init?: RequestInit): Promise<Response>;
   tabFetch(
@@ -80,16 +84,12 @@ declare global {
 > pnpm dev      # 打开调试浏览器
 ```
 
-
-
 ## 免责声明
 
-> [!caution] 
+> [!caution]
 >
 > - 声明：本工具旨在学习与交流，按“现状”提供。用户应确保其使用行为已获得必要授权并符合适用法律与目标网站政策，否则请立即停止使用。
 > - 本免责声明可能不时更新。用户继续使用本工具即视为接受更新后的条款。建议用户定期查阅最新版本。
-
-
 
 ## 安全声明
 

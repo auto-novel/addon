@@ -17,18 +17,6 @@ function buildAddonEndpoint<T extends FunctionKeys<AddonClient>>(name: T) {
 }
 
 export const Addon = {
-  makeCookiesPublic<T extends Browser.cookies.Cookie | CookieStatus>(
-    cookies: T[],
-  ): T[] {
-    return cookies.map((cookie) => {
-      if (cookie.sameSite !== "no_restriction" || !cookie.secure) {
-        cookie.sameSite = "no_restriction";
-        cookie.secure = true;
-      }
-      return cookie;
-    });
-  },
-
   cookiesStatus: buildAddonEndpoint("cookies_status"),
   cookiesPatch: buildAddonEndpoint("cookies_patch"),
 

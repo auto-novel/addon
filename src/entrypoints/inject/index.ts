@@ -1,4 +1,4 @@
-import { ClientCmd, CookieStatus, TabFetchOptions } from "@/rpc/types";
+import { CookieStatus, TabFetchOptions } from "@/rpc/types";
 
 import { AddonClient } from "./client";
 

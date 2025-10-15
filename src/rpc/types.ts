@@ -177,7 +177,9 @@ export type TabFetchOptions = {
   forceNewTab?: boolean;
 };
 
-export type CookieStatus = Omit<Browser.cookies.Cookie, "value">;
+export type CookieStatus = Partial<Omit<Browser.cookies.Cookie, "value">> & {
+  name: string;
+};
 
 export type ClientCmd = {
   "base.ping"(): Promise<string>;

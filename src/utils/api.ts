@@ -1,13 +1,20 @@
 import {
   BypassParams,
+  ClientCmd,
+  CookieStatus,
   SerializableRequest,
   SerializableResponse,
   serializeResponse,
   TabFetchOptions,
 } from "@/rpc/types";
-import { browserRemoteExecution, extractUrl } from "@/utils/tools";
+import {
+  browserRemoteExecution,
+  cookie2SetDetail,
+  extractUrl,
+  rebuildCookieUrl,
+} from "@/utils/tools";
 import { tabResMgr } from "@/utils/resource";
-import setCookie from "set-cookie-parser";
+import setCookie, { Cookie } from "set-cookie-parser";
 
 // ==========================================================================
 export async function http_fetch(
@@ -19,9 +26,9 @@ export async function http_fetch(
 }
 
 export async function tab_dom_querySelectorAll(
-  url: string,
-  selector: string,
+  params: Parameters<ClientCmd["tab.dom.querySelectorAll"]>[0],
 ): Promise<string[]> {
+  const { url, selector } = params;
   const tab = await tabResMgr.findOrCreateTab(url);
   const results = await browserRemoteExecution({
     target: { tabId: tab.id! },
@@ -37,10 +44,9 @@ export async function tab_dom_querySelectorAll(
 }
 
 export async function tab_http_fetch(
-  options: TabFetchOptions,
-  input: SerializableRequest | string,
-  requestInit?: RequestInit,
+  params: Parameters<ClientCmd["tab.http.fetch"]>[0],
 ): Promise<SerializableResponse> {
+  const { options, input, requestInit } = params;
   const { tabUrl, forceNewTab } = options;
 
   const bypassParams: BypassParams = {
@@ -147,28 +153,8 @@ export async function cookies_get(
 export async function cookies_set(
   cookies: Browser.cookies.Cookie[],
 ): Promise<void> {
-  const rebuildUrl = (cookie: Browser.cookies.Cookie) => {
-    const protocol = cookie.secure ? "https://" : "http://";
-    const domain = cookie.domain.startsWith(".")
-      ? cookie.domain.substring(1)
-      : cookie.domain;
-    const url = `${protocol}${domain}${cookie.path}`;
-    return url;
-  };
-
   const promises = cookies.map((cookie) => {
-    const setDetail: Browser.cookies.SetDetails = {
-      url: rebuildUrl(cookie),
-      name: cookie.name,
-      value: cookie.value,
-      domain: cookie.domain,
-      path: cookie.path,
-      secure: cookie.secure,
-      httpOnly: cookie.httpOnly,
-      sameSite: cookie.sameSite,
-      storeId: cookie.storeId,
-      ...(cookie.expirationDate && { expirationDate: cookie.expirationDate }),
-    };
+    const setDetail = cookie2SetDetail(cookie);
     try {
       return browser.cookies.set(setDetail);
     } catch (e) {
@@ -184,6 +170,51 @@ export async function cookies_set(
 export async function cookies_getStr(url: string): Promise<string> {
   const cookies = await cookies_get(url);
   return cookies.map((c) => `${c.name}=${c.value}`).join("; ");
+}
+
+export async function cookies_status(
+  params: Parameters<ClientCmd["cookies.status"]>[0],
+): Promise<Record<string, CookieStatus | null>> {
+  const { url, domain, keys } = params;
+  const cookies = await browser.cookies.getAll({ url, domain });
+  const ret: Awaited<ReturnType<ClientCmd["cookies.status"]>> = {};
+  if (keys === "*") {
+    for (const cookie of cookies) {
+      const name = cookie.name;
+      const { value, ...remaining } = cookie;
+      ret[name] = { ...remaining };
+    }
+  } else {
+    for (const key of keys) {
+      ret[key] = null;
+      const cookie = cookies.find((c) => c.name === key);
+      if (cookie) {
+        const { value, ...remaining } = cookie;
+        ret[key] = { ...remaining };
+      }
+    }
+  }
+  return ret;
+}
+
+export async function cookies_patch(
+  params: Parameters<ClientCmd["cookies.patch"]>[0],
+): Promise<void> {
+  const { url, patches } = params;
+  const cookies = await browser.cookies.getAll({ url });
+  const promises = Object.entries(patches)
+    .map(
+      ([key, patch]) => [cookies.find((c) => c.name === key), patch] as const,
+    )
+    .filter((entry): entry is [Browser.cookies.Cookie, (typeof entry)[1]] =>
+      Boolean(entry[0]),
+    )
+    .map(([cookie, patch]) => {
+      const newCookie = { ...cookie, ...patch };
+      const setDetail = cookie2SetDetail(newCookie);
+      return browser.cookies.set(setDetail);
+    });
+  await Promise.all(promises);
 }
 
 export async function cookies_setFromSerResp(

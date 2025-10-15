@@ -1,3 +1,40 @@
+// ================================== msg types ===============================
+export enum MessageType {
+  Ping = "AUTO_NOVEL_CRAWLER_PING",
+  Request = "AUTO_NOVEL_CRAWLER_REQUEST",
+  Response = "AUTO_NOVEL_CRAWLER_RESPONSE",
+}
+
+export interface MessagePing {
+  type: typeof MessageType.Ping;
+  id?: string;
+}
+
+export type RequestPayload = {
+  cmd: keyof ClientCmd;
+  params?: any;
+};
+
+export interface MessageRequest {
+  type: typeof MessageType.Request;
+  id?: string;
+  payload: RequestPayload;
+}
+
+export interface MessageResponse {
+  type: typeof MessageType.Response;
+  id?: string;
+  payload: ResponsePayload;
+}
+
+export type ResponsePayload = {
+  success: boolean;
+  result?: any;
+  error?: string;
+};
+
+export type Message = MessagePing | MessageRequest | MessageResponse;
+
 // ======================== types =================================
 export type EnvType = {
   sender: {
@@ -140,6 +177,10 @@ export type TabFetchOptions = {
   forceNewTab?: boolean;
 };
 
+export type CookieStatus = Partial<Omit<Browser.cookies.Cookie, "value">> & {
+  name: string;
+};
+
 export type ClientCmd = {
   "base.ping"(): Promise<string>;
   "base.info"(): Promise<InfoResult>;
@@ -180,57 +221,20 @@ export type ClientCmd = {
     env: EnvType,
   ): Promise<string[]>;
 
-  "cookies.get"(
-    params: { domain: string },
+  "cookies.status"(
+    params: {
+      url?: string;
+      domain?: string;
+      keys: string[] | "*";
+    },
     env: EnvType,
-  ): Promise<Browser.cookies.Cookie[]>;
+  ): Promise<Record<string, CookieStatus | null>>;
 
-  "cookies.getStr"(params: { url: string }, env: EnvType): Promise<string>;
-
-  "cookies.set"(
-    params: { cookies: Browser.cookies.Cookie[] },
+  "cookies.patch"(
+    params: {
+      url: string;
+      patches: Record<string, CookieStatus>;
+    },
     env: EnvType,
   ): Promise<void>;
-
-  "cookies.setFromResponse"(
-    params: { response: SerializableResponse },
-    env: EnvType,
-  ): Promise<void>;
 };
-
-// ================================== msg types ===============================
-export enum MessageType {
-  Ping = "AUTO_NOVEL_CRAWLER_PING",
-  Request = "AUTO_NOVEL_CRAWLER_REQUEST",
-  Response = "AUTO_NOVEL_CRAWLER_RESPONSE",
-}
-
-export interface MessagePing {
-  type: typeof MessageType.Ping;
-  id?: string;
-}
-
-export type RequestPayload = {
-  cmd: keyof ClientCmd;
-  params?: any;
-};
-
-export interface MessageRequest {
-  type: typeof MessageType.Request;
-  id?: string;
-  payload: RequestPayload;
-}
-
-export interface MessageResponse {
-  type: typeof MessageType.Response;
-  id?: string;
-  payload: ResponsePayload;
-}
-
-export type ResponsePayload = {
-  success: boolean;
-  result?: any;
-  error?: string;
-};
-
-export type Message = MessagePing | MessageRequest | MessageResponse;

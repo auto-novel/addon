@@ -5,8 +5,8 @@ import type {
   TabFetchOptions,
 } from "@/rpc/types";
 import { deserializeResponse, MessageType } from "@/rpc/types";
-import type { ClientCmd, InfoResult, SerializableResponse } from "@/rpc/types";
-import { serializeRequest, serializeResponse } from "@/rpc/types";
+import type { ClientCmd, SerializableResponse } from "@/rpc/types";
+import { serializeRequest } from "@/rpc/types";
 
 function sendMessageChrome<T>(msg: Message): Promise<T> {
   const addonId = "kenigjdcpndlkomhegjcepokcgikpdki";
@@ -74,6 +74,15 @@ let msgId = 1;
 const api = createAddonApi();
 
 export class AddonClient {
+  buildApiEndpoint<T extends keyof ClientCmd>(cmd: T) {
+    return (params: Parameters<ClientCmd[T]>[0]): ReturnType<ClientCmd[T]> => {
+      type ParamType = Parameters<ClientCmd[typeof cmd]>[0];
+      type ResultType = ReturnType<ClientCmd[typeof cmd]>;
+      const msg = this.buildCrawlerMessage<ParamType>(cmd, params);
+      return api.sendMessage(msg) as ResultType;
+    };
+  }
+
   buildCrawlerMessage<P>(cmd: keyof ClientCmd, params?: P): MessageRequest {
     const msg: MessageRequest = {
       type: MessageType.Request,
@@ -86,62 +95,24 @@ export class AddonClient {
     return msg;
   }
 
-  async ping(): Promise<string> {
-    const cmd = "base.ping";
-    const msg = this.buildCrawlerMessage(cmd);
-    return await api.sendMessage(msg);
-  }
+  ping = this.buildApiEndpoint("base.ping");
+  info = this.buildApiEndpoint("base.info");
 
-  async info(): Promise<InfoResult> {
-    const cmd = "base.info";
-    const msg = this.buildCrawlerMessage(cmd);
-    return await api.sendMessage(msg);
-  }
-
-  async bypass_toggle(
-    enable: boolean,
-    params: {
-      requestUrl: string;
-      origin?: string;
-      referer?: string;
-    },
-  ): Promise<void> {
-    const cmd = enable ? "local.bypass.enable" : "local.bypass.disable";
-    type ParamType = Parameters<ClientCmd[typeof cmd]>[0];
-    const msg = this.buildCrawlerMessage<ParamType>(cmd, params);
-    return await api.sendMessage(msg);
-  }
-
-  async bypass_enable(params: {
-    requestUrl: string;
-    origin?: string;
-    referer?: string;
-  }): Promise<void> {
-    return await this.bypass_toggle(true, params);
-  }
-
-  async bypass_disable(params: {
-    requestUrl: string;
-    origin?: string;
-    referer?: string;
-  }): Promise<void> {
-    return await this.bypass_toggle(false, params);
-  }
+  bypass_enable = this.buildApiEndpoint("local.bypass.enable");
+  bypass_disable = this.buildApiEndpoint("local.bypass.disable");
 
   async http_fetch(
     input: Request | string | URL,
     requestInit?: RequestInit,
   ): Promise<Response> {
     const [url, _input] = this.rebuild_serializable_request(input);
-    const cmd = "http.fetch";
-    type ParamType = Parameters<ClientCmd[typeof cmd]>[0];
     const serInput =
       typeof _input === "string" ? _input : await serializeRequest(_input);
-    const msg = this.buildCrawlerMessage<ParamType>(cmd, {
+    const F = this.buildApiEndpoint("http.fetch");
+    const resp: SerializableResponse = await F({
       input: serInput,
       requestInit,
     });
-    const resp: SerializableResponse = await api.sendMessage(msg);
     return deserializeResponse(resp);
   }
 
@@ -151,58 +122,22 @@ export class AddonClient {
     requestInit?: RequestInit,
   ): Promise<Response> {
     const [url, _input] = this.rebuild_serializable_request(input);
-    const cmd = "tab.http.fetch";
-    type ParamType = Parameters<ClientCmd[typeof cmd]>[0];
     const serInput =
       typeof _input === "string" ? _input : await serializeRequest(_input);
-    const msg = this.buildCrawlerMessage<ParamType>(cmd, {
+    const F = this.buildApiEndpoint("tab.http.fetch");
+    const resp: SerializableResponse = await F({
       options,
       input: serInput,
       requestInit,
     });
-    const resp: SerializableResponse = await api.sendMessage(msg);
     return deserializeResponse(resp);
   }
 
-  async tab_dom_querySelectorAll(
-    url: string,
-    selector: string,
-  ): Promise<string[]> {
-    const cmd = "tab.dom.querySelectorAll";
-    type ParamType = Parameters<ClientCmd[typeof cmd]>[0];
-    const msg = this.buildCrawlerMessage<ParamType>(cmd, { url, selector });
-    const resp: string[] = await api.sendMessage(msg);
-    return resp;
-  }
+  tab_dom_querySelectorAll = this.buildApiEndpoint("tab.dom.querySelectorAll");
 
-  async cookies_getStr(url: string): Promise<string> {
-    const cmd = "cookies.getStr";
-    type ParamType = Parameters<ClientCmd[typeof cmd]>[0];
-    const msg = this.buildCrawlerMessage<ParamType>(cmd, { url });
-    return await api.sendMessage(msg);
-  }
+  cookies_status = this.buildApiEndpoint("cookies.status");
 
-  async cookies_get(domain: string): Promise<Browser.cookies.Cookie[]> {
-    const cmd = "cookies.get";
-    type ParamType = Parameters<ClientCmd[typeof cmd]>[0];
-    const msg = this.buildCrawlerMessage<ParamType>(cmd, { domain });
-    return await api.sendMessage(msg);
-  }
-
-  async cookies_set(cookies: Browser.cookies.Cookie[]): Promise<void> {
-    const cmd = "cookies.set";
-    type ParamType = Parameters<ClientCmd[typeof cmd]>[0];
-    const msg = this.buildCrawlerMessage<ParamType>(cmd, { cookies });
-    return await api.sendMessage(msg);
-  }
-
-  async cookies_setFromResponse(response: Response) {
-    const serResp = await serializeResponse(response);
-    const cmd = "cookies.setFromResponse";
-    type ParamType = Parameters<ClientCmd[typeof cmd]>[0];
-    const msg = this.buildCrawlerMessage<ParamType>(cmd, { response: serResp });
-    return await api.sendMessage(msg);
-  }
+  cookies_patch = this.buildApiEndpoint("cookies.patch");
 
   private rebuild_serializable_request(
     input: Request | string | URL,

@@ -37,18 +37,9 @@ const METHODS: ClientCmd = {
     return await Api.http_fetch(final_input, requestInit);
   },
 
-  "tab.http.fetch": async ({ options, input, requestInit }) =>
-    await Api.tab_http_fetch(options, input, requestInit),
+  "tab.http.fetch": Api.tab_http_fetch,
+  "tab.dom.querySelectorAll": Api.tab_dom_querySelectorAll,
 
-  "tab.dom.querySelectorAll": async ({ url, selector }) =>
-    await Api.tab_dom_querySelectorAll(url, selector),
-
-  "cookies.setFromResponse": async ({ response }) =>
-    await Api.cookies_setFromSerResp(response),
-
-  "cookies.get": async ({ domain }) => await Api.cookies_get(domain),
-
-  "cookies.getStr": async ({ url }) => await Api.cookies_getStr(url),
-
-  "cookies.set": async ({ cookies }) => await Api.cookies_set(cookies),
+  "cookies.status": Api.cookies_status,
+  "cookies.patch": Api.cookies_patch,
 };

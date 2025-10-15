@@ -1,11 +1,25 @@
-import { TabFetchOptions } from "@/rpc/types";
+import { CookieStatus, TabFetchOptions } from "@/rpc/types";
 
 import { AddonClient } from "./client";
 
+type FunctionKeys<T> = {
+  [K in keyof T]: T[K] extends (...args: any[]) => any ? K : never;
+}[keyof T];
+
+function buildAddonEndpoint<T extends FunctionKeys<AddonClient>>(name: T) {
+  return (...args: Parameters<AddonClient[T]>) => {
+    const addon = new AddonClient();
+    const method = addon[name] as (
+      ...args: Parameters<AddonClient[T]>
+    ) => ReturnType<AddonClient[T]>;
+    return method.apply(addon, args);
+  };
+}
+
 export const Addon = {
-  makeCookiesPublic(
-    cookies: Browser.cookies.Cookie[],
-  ): Browser.cookies.Cookie[] {
+  makeCookiesPublic<T extends Browser.cookies.Cookie | CookieStatus>(
+    cookies: T[],
+  ): T[] {
     return cookies.map((cookie) => {
       if (cookie.sameSite !== "no_restriction" || !cookie.secure) {
         cookie.sameSite = "no_restriction";
@@ -15,15 +29,8 @@ export const Addon = {
     });
   },
 
-  cookiesGet(url: string): Promise<Browser.cookies.Cookie[]> {
-    const addon = new AddonClient();
-    return addon.cookies_get(url);
-  },
-
-  cookiesSet(cookies: Browser.cookies.Cookie[]): Promise<void> {
-    const addon = new AddonClient();
-    return addon.cookies_set(cookies);
-  },
+  cookiesStatus: buildAddonEndpoint("cookies_status"),
+  cookiesPatch: buildAddonEndpoint("cookies_patch"),
 
   fetch(input: string | URL | Request, init?: RequestInit): Promise<Response> {
     const addon = new AddonClient();

@@ -55,3 +55,30 @@ export function b64EncodeUnicode(str: string): string {
     }),
   );
 }
+
+export function rebuildCookieUrl(cookie: Browser.cookies.Cookie): string {
+  const protocol = cookie.secure ? "https://" : "http://";
+  const domain = cookie.domain.startsWith(".")
+    ? cookie.domain.substring(1)
+    : cookie.domain;
+  const url = `${protocol}${domain}${cookie.path}`;
+  return url;
+}
+
+export function cookie2SetDetail(
+  cookie: Browser.cookies.Cookie,
+): Browser.cookies.SetDetails {
+  const setDetail = {
+    url: rebuildCookieUrl(cookie),
+    name: cookie.name,
+    value: cookie.value,
+    domain: cookie.domain,
+    path: cookie.path,
+    secure: cookie.secure,
+    httpOnly: cookie.httpOnly,
+    sameSite: cookie.sameSite,
+    storeId: cookie.storeId,
+    ...(cookie.expirationDate && { expirationDate: cookie.expirationDate }),
+  };
+  return setDetail;
+}

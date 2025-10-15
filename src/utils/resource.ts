@@ -99,13 +99,14 @@ export class TabResMgr {
     });
   }
 
-  async findOrCreateTab(
-    url: string,
-    options?: { forceNewTab?: boolean },
-  ): Promise<Tab> {
+  private urlLocks = new Map<string, Promise<any>>();
+  findOrCreateTab(url: string, options?: { forceNewTab?: boolean }): Tab {
     debugLog(`[TabResMgr] findOrCreateTab: ${url}`);
     const normalizedUrl = new URL(url);
     url = normalizedUrl.toString();
+
+    // 获取当前 URL 的锁，如果不存在则创建一个已解决的 Promise 作为起点
+    const currentLock = this.urlLocks.get(url) || Promise.resolve();
 
     const createNewTabFn = async (): Promise<Tab> => {
       const tabRet = await browser.tabs.create({
@@ -121,27 +122,47 @@ export class TabResMgr {
       return tabRet;
     };
 
-    let tab;
-    if (options?.forceNewTab) {
-      tab = await createNewTabFn();
-    } else {
-      const tabs = await browser.tabs.query({ url });
-      if (tabs.length > 0) {
-        tab = tabs[0];
-      }
-      // FIXME(kuriko): 如果用户此时手动关闭了标签页怎么办？
-      if (tabs.length > 0) {
-        tab = tabs[0];
-      } else {
+    const criticalSection = async () => {
+      let tab;
+      if (options?.forceNewTab) {
         tab = await createNewTabFn();
+      } else {
+        const tabs = await browser.tabs.query({ url });
+        if (tabs.length > 0) {
+          tab = tabs[0];
+        }
+        // FIXME(kuriko): 如果用户此时手动关闭了标签页怎么办？
+        if (tabs.length > 0) {
+          tab = tabs[0];
+        } else {
+          tab = await createNewTabFn();
+        }
       }
-    }
-    tab = await this.waitAnyTab(tab);
+      tab = await this.waitAnyTab(tab);
 
-    if (tab.id == null) throw newError(`Tab has no id: ${tab}`);
-    await this.acquireTab(tab.id);
+      if (tab.id == null) throw newError(`Tab has no id: ${tab}`);
+      await this.acquireTab(tab.id);
 
-    return tab;
+      return tab;
+    };
+
+    // --- 锁的核心实现 ---
+    const result = currentLock.then(() => criticalSection());
+    // 将此 URL 的锁更新为当前操作完成后的 Promise
+    this.urlLocks.set(
+      url,
+      result.catch(() => {}),
+    );
+
+    result.finally(() => {
+      // 只有当 Map 中的锁仍然是当前这个操作时才移除
+      // 避免移除掉后续排队的任务设置的新锁
+      if (this.urlLocks.get(url) === result.catch(() => {})) {
+        this.urlLocks.delete(url);
+      }
+    });
+
+    return result;
   }
 }
 
@@ -186,7 +207,13 @@ class RulesManager {
   clear() {
     // Clear all rules
     browser.declarativeNetRequest.getDynamicRules((rules) => {
-      debugLog("Cleaning up old rules: ", rules);
+      debugLog("Cleaning up old browser rules: ", rules);
+      browser.declarativeNetRequest.updateDynamicRules({
+        removeRuleIds: rules.map((r) => r.id),
+      });
+    });
+    browser.declarativeNetRequest.getSessionRules((rules) => {
+      debugLog("Cleaning up old session rules: ", rules);
       browser.declarativeNetRequest.updateSessionRules({
         removeRuleIds: rules.map((r) => r.id),
       });

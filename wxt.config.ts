@@ -37,6 +37,7 @@ export default defineConfig({
       host_permissions: [
         "*://*.novelia.cc/*",
         "*://*.fishhawk.top/*",
+        "*://localhost/*",
 
         "*://*.baidu.com/*",
         "*://*.youdao.com/*",
@@ -88,6 +89,9 @@ export default defineConfig({
   vite: () =>
     ({
       plugins: [tailwindcss()],
+      build: {
+        // minify: false,
+      },
     }) as WxtViteConfig,
   autoIcons: {
     baseIconPath: "assets/icon.svg",

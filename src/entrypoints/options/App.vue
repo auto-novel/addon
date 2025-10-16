@@ -11,6 +11,10 @@ const cases = ref<TestCase[]>([
     "https://www.amazon.co.jp/dp/4098505789",
     "異世界転生して魔女になったの",
   ),
+  Test.httpFetchCase(
+    "https://httpbin.org/anything",
+    "https://httpbin.org/anything",
+  ),
   Test.tabHttpFetchCase(
     "https://www.amazon.co.jp/",
     "https://www.amazon.co.jp/dp/4098505789",

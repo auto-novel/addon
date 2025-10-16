@@ -1,4 +1,4 @@
-import { type SerializableRequest } from "@/rpc/types";
+import { serializeRequest, type SerializableRequest } from "@/rpc/types";
 
 type BrowserRemoteExecutionOptions<T, A extends any[]> = {
   target: Browser.scripting.InjectionTarget;
@@ -32,8 +32,14 @@ export function hashStringToInt(str: string): number {
   return hash < 0 ? -hash : hash;
 }
 
-export function extractUrl(input: SerializableRequest | string): string {
-  return typeof input === "string" ? input : input.url;
+export function extractUrl(
+  input: Request | SerializableRequest | string | URL,
+): string {
+  if (typeof input == "string") return input;
+  if (input instanceof URL) return input.toString();
+  if (input instanceof Request) return input.url;
+  if (input instanceof serializeRequest) return input.url;
+  throw newError(`Invalid input type: ${input}`);
 }
 
 export function debugLog(...args: any[]) {

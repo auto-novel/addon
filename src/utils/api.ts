@@ -21,7 +21,15 @@ export async function http_fetch(
   input: Request | string | URL,
   requestInit?: RequestInit,
 ): Promise<SerializableResponse> {
+  const url = extractUrl(input);
+  const tabId = null;
+  const bypassParams = {
+    requestUrl: url,
+    spoofOrigin: url,
+  };
+  await local_install_bypass(tabId, bypassParams);
   const resp = await fetch(input, requestInit);
+  await local_uninstall_bypass(tabId, bypassParams);
   return serializeResponse(resp);
 }
 
@@ -277,36 +285,38 @@ type _rule5 = Browser.declarativeNetRequest.RuleCondition["resourceTypes"];
 type _rule6 = Browser.declarativeNetRequest.RuleCondition["responseHeaders"];
 
 export async function local_install_bypass(
-  tabId: number,
+  tabId: number | null,
   bypassParams: BypassParams,
 ): Promise<void> {
   const { requestUrl, origin, referer } = bypassParams;
   const _origin = origin ?? new URL(requestUrl).origin;
   const _referer = referer ?? _origin + "/";
-  let tab = await browser.tabs.get(tabId);
-  tab = await tabResMgr.waitAnyTab(tab); // refresh tab status
-  const tabUrl = tab.url ?? tab.pendingUrl;
-  if (!tabUrl) throw newError(`Tab has no url: ${tab}`);
-  await Promise.all([
-    // cookiesUtils.overrideSameSite(requestUrl),
-    installSpoofRules(tabId, requestUrl, _origin, _referer),
-    installCORSRules(tabId, tabUrl),
-  ]);
+  const promises = [];
+  if (tabId) {
+    let tab = await browser.tabs.get(tabId);
+    tab = await tabResMgr.waitAnyTab(tab); // refresh tab status
+    const tabUrl = tab.url ?? tab.pendingUrl;
+    if (!tabUrl) throw newError(`Tab has no url: ${tab}`);
+    promises.push(installCORSRules(tabId, tabUrl));
+  }
+  promises.push(installSpoofRules(tabId, requestUrl, _origin, _referer));
+  await Promise.all(promises);
 }
 
 export async function local_uninstall_bypass(
-  tabId: number,
+  tabId: number | null,
   bypassParams: BypassParams,
 ): Promise<void> {
   const { requestUrl, origin, referer } = bypassParams;
   const _origin = origin ?? new URL(requestUrl).origin;
   const _referer = referer ?? _origin + "/";
-  const tab = await browser.tabs.get(tabId);
-  const tabUrl = tab.url ?? tab.pendingUrl;
-  if (!tabUrl) throw newError(`Tab has no url: ${tab}`);
 
-  await Promise.all([
-    uninstallSpoofRules(tabId, requestUrl, _origin, _referer),
-    uninstallCORSRules(tabId, tabUrl),
-  ]);
+  const promises = [uninstallSpoofRules(tabId, requestUrl, _origin, _referer)];
+  if (tabId) {
+    const tab = await browser.tabs.get(tabId);
+    const tabUrl = tab.url ?? tab.pendingUrl;
+    if (!tabUrl) throw newError(`Tab has no url: ${tab}`);
+    promises.push(uninstallCORSRules(tabId, tabUrl));
+  }
+  await Promise.all(promises);
 }

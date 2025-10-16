@@ -11,12 +11,12 @@ function spoofRulesKey(
 }
 
 function spoofRulesBuilder(
-  tabId: number,
+  tabId: number | null,
   requestUrl: string,
   origin: string,
   referer: string,
 ): any[] {
-  let idx = spoofRulesKey(tabId, requestUrl, origin, referer);
+  let idx = spoofRulesKey(tabId ?? -1, requestUrl, origin, referer);
   debugLog("Building spoof rules for", {
     idx,
     url: requestUrl,
@@ -36,7 +36,7 @@ function spoofRulesBuilder(
         ],
       },
       condition: {
-        tabIds: [tabId],
+        tabIds: tabId ? [tabId] : undefined,
         urlFilter: `|${filter}/*`,
         resourceTypes: ["xmlhttprequest", "csp_report", "main_frame"],
       },
@@ -128,10 +128,8 @@ function corsRulesBuilder(tabId: number, initialatorUrl: string): any[] {
   ];
 }
 
-// 用于记录某个规则被安装了多少次，防止过早卸载
-const SPOOF_KEY = "spoof_rules";
 export async function installSpoofRules(
-  tabId: number,
+  tabId: number | null,
   requestUrl: string,
   origin: string,
   referer: string,
@@ -142,7 +140,7 @@ export async function installSpoofRules(
 }
 
 export async function uninstallSpoofRules(
-  tabId: number,
+  tabId: number | null,
   requestUrl: string,
   origin: string,
   referer: string,
@@ -152,7 +150,6 @@ export async function uninstallSpoofRules(
   await rulesMgr.remove(rules);
 }
 
-const CORS_KEY = "cors_rules";
 export async function installCORSRules(tabId: number, initialatorUrl: string) {
   const rules = corsRulesBuilder(tabId, initialatorUrl);
   debugLog("Add cors rules: ", rules);

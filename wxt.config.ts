@@ -39,6 +39,8 @@ export default defineConfig({
         "*://*.fishhawk.top/*",
         "*://localhost/*",
 
+        "*://httpbin.org/*",
+
         "*://*.baidu.com/*",
         "*://*.youdao.com/*",
         "*://*.openai.com/*",

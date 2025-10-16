@@ -100,7 +100,10 @@ export class TabResMgr {
   }
 
   private urlLocks = new Map<string, Promise<any>>();
-  findOrCreateTab(url: string, options?: { forceNewTab?: boolean }): Tab {
+  findOrCreateTab(
+    url: string,
+    options?: { forceNewTab?: boolean },
+  ): Promise<Tab> {
     debugLog(`[TabResMgr] findOrCreateTab: ${url}`);
     const normalizedUrl = new URL(url);
     url = normalizedUrl.toString();

@@ -1,4 +1,4 @@
-import { CookieStatus, TabFetchOptions } from "@/rpc/types";
+import { TabFetchOptions } from "@/rpc/types";
 
 import { AddonClient } from "./client";
 
@@ -17,6 +17,9 @@ function buildAddonEndpoint<T extends FunctionKeys<AddonClient>>(name: T) {
 }
 
 export const Addon = {
+  version: VERSION,
+
+  info: buildAddonEndpoint("info"),
   cookiesStatus: buildAddonEndpoint("cookies_status"),
   cookiesPatch: buildAddonEndpoint("cookies_patch"),
 
@@ -80,4 +83,5 @@ declare global {
 export default defineUnlistedScript(() => {
   debugLog("Addon script loaded");
   window.Addon = Addon;
+  debugLog("Addon injected to window.Addon, extension version:", Addon.version);
 });

@@ -81,7 +81,6 @@ class RateLimiter {
       const queue = this.queues.get(key)!;
       const timestamps = this.timestamps.get(key)!;
       const config = (await this.configs.get(key)) || this.defaultConfig;
-      console.error(config);
       while (queue.length > 0) {
         const now = Date.now();
 

@@ -76,6 +76,8 @@ export default defineConfig({
         browser_specific_settings: {
           gecko: {
             id: "addon@n.novelia.cc",
+            update_url:
+              "https://github.com/auto-novel/addon/releases/latest/download/update.json",
           },
         },
       };

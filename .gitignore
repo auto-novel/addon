@@ -3,3 +3,5 @@
 .wxt
 node_modules
 web-ext.config.ts
+
+update.json

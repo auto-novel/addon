@@ -26,7 +26,7 @@ export class Persist<K, T> {
     this.key2String = key2String || ((key: K) => key as unknown as string);
   }
 
-  async refresh(checkCallback: (key: string, val: T) => boolean) {
+  async refresh(checkCallback: (key: string, val: T) => boolean = () => true) {
     const allItems = await storage.snapshot(this.storageArea);
     const deletePromise = Object.entries(allItems)
       .filter(([fullKey]) => fullKey.startsWith(this.genKey("")))
@@ -42,14 +42,25 @@ export class Persist<K, T> {
     }
   }
 
+  async snapshot(): Promise<Record<string, any>> {
+    const snapshot = await storage.snapshot(this.storageArea);
+    return Object.entries(snapshot).filter(([key]) => {
+      return key.startsWith(this.genKey(""));
+    });
+  }
+
   async clear() {
     await this.refresh(() => false);
   }
 
-  private genKey(key: K | string): StorageItemKey {
+  private genKey(key: K | string): string {
     const keyStr: string = typeof key === "string" ? key : this.key2String(key);
     if (keyStr.includes(":")) throw new Error("Key cannot contain ':'");
-    return `${this.storageArea}:${this.tag}:${keyStr}`;
+    return `${this.tag}:${keyStr}`;
+  }
+
+  private genStorageKey(key: K | string): StorageItemKey {
+    return `${this.storageArea}:${this.genKey(key)}`;
   }
 
   private extractKey(storageItemKey: StorageItemKey): string {
@@ -57,15 +68,15 @@ export class Persist<K, T> {
   }
 
   async set(key: K | string, value: T) {
-    return await storage.setItem(this.genKey(key), value);
+    return await storage.setItem(this.genStorageKey(key), value);
   }
 
   async get(key: K | string): Promise<T | null> {
-    return await storage.getItem(this.genKey(key));
+    return await storage.getItem(this.genStorageKey(key));
   }
 
   async del(key: K | string) {
-    return await storage.removeItem(this.genKey(key));
+    return await storage.removeItem(this.genStorageKey(key));
   }
 }
 

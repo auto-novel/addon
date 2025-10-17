@@ -5,16 +5,15 @@ import {
   SerializableRequest,
   SerializableResponse,
   serializeResponse,
-  TabFetchOptions,
 } from "@/rpc/types";
 import {
   browserRemoteExecution,
   cookie2SetDetail,
   extractUrl,
-  rebuildCookieUrl,
 } from "@/utils/tools";
 import { tabResMgr } from "@/utils/resource";
-import setCookie, { Cookie } from "set-cookie-parser";
+import setCookie from "set-cookie-parser";
+import { rateLimiter } from "@/utils/rate-limit";
 
 // ==========================================================================
 export async function http_fetch(
@@ -22,6 +21,7 @@ export async function http_fetch(
   requestInit?: RequestInit,
 ): Promise<SerializableResponse> {
   const url = extractUrl(input);
+  await rateLimiter.acquire(rateLimiter.urlToKey(url));
   const tabId = null;
   const bypassParams = {
     requestUrl: url,
@@ -57,8 +57,11 @@ export async function tab_http_fetch(
   const { options, input, requestInit } = params;
   const { tabUrl, forceNewTab } = options;
 
+  const url = extractUrl(input);
+  await rateLimiter.acquire(rateLimiter.urlToKey(url));
+
   const bypassParams: BypassParams = {
-    requestUrl: extractUrl(input),
+    requestUrl: url,
     // incase of `Referrer Policystrict-origin-when-cross-origin`
     // origin: new URL(tabUrl).origin,
   };

@@ -15,6 +15,7 @@ export default defineBackground(() => {
   debugLog.info(`CSC debug mode: ${IS_DEBUG}`);
 
   rulesMgr.clear();
+  rateLimiter.init();
 
   browser.alarms.onAlarm.addListener(alarmLisener);
 
@@ -26,9 +27,6 @@ export default defineBackground(() => {
     if (IS_DEBUG) {
       debugLog("Received message: ", message, sender);
     }
-
-    // FIXME(kuriko): check sender origin to prevent abuse
-    // consts.ts / isMessagingAllowed function
 
     switch (message.type) {
       case MessageType.Ping: {

@@ -1,6 +1,8 @@
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig, UserManifest, type WxtViteConfig } from "wxt";
 
+const IS_DEBUG = process.env.NODE_ENV === "dev";
+
 export default defineConfig({
   modules: ["@wxt-dev/auto-icons", "@wxt-dev/module-vue"],
   imports: {
@@ -92,7 +94,7 @@ export default defineConfig({
     ({
       plugins: [tailwindcss()],
       build: {
-        // minify: false,
+        minify: !IS_DEBUG,
       },
     }) as WxtViteConfig,
   autoIcons: {

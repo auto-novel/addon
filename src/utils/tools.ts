@@ -1,5 +1,9 @@
 import { serializeRequest, type SerializableRequest } from "@/rpc/types";
 
+export function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 type BrowserRemoteExecutionOptions<T, A extends any[]> = {
   target: Browser.scripting.InjectionTarget;
   func: (...args: A) => T | Promise<T>;

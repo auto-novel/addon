@@ -54,6 +54,17 @@ jobs:
             echo "tag_name=nightly" >> $GITHUB_OUTPUT
           fi
 
+      - name: rename output files
+        run: |
+          if [[ "${{ steps.metadata.outputs.prerelease }}" == "true" ]]; then
+            for file in .output/addon-*.zip; do
+              [ -e "$file" ] || continue
+              new_file=$(echo "$file" | sed 's/addon-.*-/addon-nightly-/')
+              echo "Renaming '$file' to '$new_file'"
+              mv "$file" "$new_file"
+            done
+          fi
+
       - uses: softprops/action-gh-release@v2
         with:
           prerelease: ${{ steps.metadata.outputs.prerelease }}

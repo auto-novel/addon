@@ -7,6 +7,7 @@ import type {
 import { deserializeResponse, MessageType } from "@/rpc/types";
 import type { ClientCmd, SerializableResponse } from "@/rpc/types";
 import { serializeRequest } from "@/rpc/types";
+import { IS_TIMING } from "@/utils/consts";
 
 function sendMessageChrome<T>(msg: Message): Promise<T> {
   const addonId = "kenigjdcpndlkomhegjcepokcgikpdki";
@@ -105,6 +106,7 @@ export class AddonClient {
     input: Request | string | URL,
     requestInit?: RequestInit,
   ): Promise<Response> {
+    const start = performance.now();
     const [url, _input] = this.rebuild_serializable_request(input);
     const serInput =
       typeof _input === "string" ? _input : await serializeRequest(_input);
@@ -113,7 +115,12 @@ export class AddonClient {
       input: serInput,
       requestInit,
     });
-    return deserializeResponse(resp);
+    const ret = deserializeResponse(resp);
+    if (IS_TIMING) {
+      const end = performance.now();
+      debugLog.info("[Timing] http_fetch(ms):", end - start, url);
+    }
+    return ret;
   }
 
   async tab_http_fetch(
@@ -121,6 +128,7 @@ export class AddonClient {
     input: Request | string | URL,
     requestInit?: RequestInit,
   ): Promise<Response> {
+    const start = performance.now();
     const [url, _input] = this.rebuild_serializable_request(input);
     const serInput =
       typeof _input === "string" ? _input : await serializeRequest(_input);
@@ -130,7 +138,12 @@ export class AddonClient {
       input: serInput,
       requestInit,
     });
-    return deserializeResponse(resp);
+    const ret = deserializeResponse(resp);
+    if (IS_TIMING) {
+      const end = performance.now();
+      debugLog.info("[Timing] tab_http_fetch(ms):", end - start, url);
+    }
+    return ret;
   }
 
   tab_dom_querySelectorAll = this.buildApiEndpoint("tab.dom.querySelectorAll");

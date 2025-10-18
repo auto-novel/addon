@@ -11,11 +11,26 @@ export const DEFAULT_RATE_LIMIT_CONFIG: Record<string, RateLimitConfig> = {
   "*": {
     maxRequestsPerMinute: -1,
     minIntervalMs: 0,
-    burst: -1,
+    maxParallelRequests: 6,
   },
   "dict.youdao.com": {
-    maxRequestsPerMinute: -1,
-    minIntervalMs: 100,
-    burst: -1,
+    maxRequestsPerMinute: 300,
+    minIntervalMs: 0,
+    maxParallelRequests: 6,
   },
 };
+
+// 基础的请求速率测试实验
+export const IS_TIMING = false;
+(() => {
+  if (IS_TIMING && IS_DEBUG) {
+    debugLog.warn("Timing mode enabled: all rate limits are disabled.");
+    for (const [key] of Object.entries(DEFAULT_RATE_LIMIT_CONFIG)) {
+      DEFAULT_RATE_LIMIT_CONFIG[key] = {
+        maxRequestsPerMinute: -1,
+        minIntervalMs: 0,
+        maxParallelRequests: -1,
+      };
+    }
+  }
+})();

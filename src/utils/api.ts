@@ -21,16 +21,20 @@ export async function http_fetch(
   requestInit?: RequestInit,
 ): Promise<SerializableResponse> {
   const url = extractUrl(input);
-  await rateLimiter.acquire(rateLimiter.urlToKey(url));
-  const tabId = null;
-  const bypassParams = {
-    requestUrl: url,
-    spoofOrigin: url,
-  };
-  await local_install_bypass(tabId, bypassParams);
-  const resp = await fetch(input, requestInit);
-  await local_uninstall_bypass(tabId, bypassParams);
-  return serializeResponse(resp);
+  const release = await rateLimiter.acquire(rateLimiter.urlToKey(url));
+  try {
+    const tabId = null;
+    const bypassParams = {
+      requestUrl: url,
+      spoofOrigin: url,
+    };
+    await local_install_bypass(tabId, bypassParams);
+    const resp = await fetch(input, requestInit);
+    await local_uninstall_bypass(tabId, bypassParams);
+    return serializeResponse(resp);
+  } finally {
+    release();
+  }
 }
 
 export async function tab_dom_querySelectorAll(
@@ -58,7 +62,7 @@ export async function tab_http_fetch(
   const { tabUrl, forceNewTab } = options;
 
   const url = extractUrl(input);
-  await rateLimiter.acquire(rateLimiter.urlToKey(url));
+  const release = await rateLimiter.acquire(rateLimiter.urlToKey(url));
 
   const bypassParams: BypassParams = {
     requestUrl: url,
@@ -66,91 +70,95 @@ export async function tab_http_fetch(
     // origin: new URL(tabUrl).origin,
   };
 
-  const tab = await tabResMgr.findOrCreateTab(tabUrl, { forceNewTab });
-  if (tab.id == null) throw newError(`Tab has no id: ${tab}`);
+  try {
+    const tab = await tabResMgr.findOrCreateTab(tabUrl, { forceNewTab });
+    if (tab.id == null) throw newError(`Tab has no id: ${tab}`);
 
-  await local_install_bypass(tab.id, bypassParams);
+    await local_install_bypass(tab.id, bypassParams);
 
-  // NOTE(kuriko): 在 tab 上面直接执行 fetch，一般不用考虑 CORS bypass 问题。
-  const respSer = await browserRemoteExecution({
-    target: { tabId: tab.id },
-    func: async (
-      input: SerializableRequest | string,
-      requestInit: RequestInit | null,
-    ) => {
-      // Copied from types.ts
-      function deserializeRequest(req: SerializableRequest): RequestInfo {
-        if (typeof req === "string") {
-          return req;
+    // NOTE(kuriko): 在 tab 上面直接执行 fetch，一般不用考虑 CORS bypass 问题。
+    const respSer = await browserRemoteExecution({
+      target: { tabId: tab.id },
+      func: async (
+        input: SerializableRequest | string,
+        requestInit: RequestInit | null,
+      ) => {
+        // Copied from types.ts
+        function deserializeRequest(req: SerializableRequest): RequestInfo {
+          if (typeof req === "string") {
+            return req;
+          }
+
+          console.log("deserializeRequest: ", req);
+          const init: RequestInit = {
+            method: req.method,
+            headers: new Headers(req.headers),
+            body: req.body,
+            mode: req.mode,
+            credentials: req.credentials,
+            cache: req.cache,
+            redirect: req.redirect,
+            referrer: req.referrer,
+            integrity: req.integrity,
+          };
+
+          return new Request(req.url, init);
         }
 
-        console.log("deserializeRequest: ", req);
-        const init: RequestInit = {
-          method: req.method,
-          headers: new Headers(req.headers),
-          body: req.body,
-          mode: req.mode,
-          credentials: req.credentials,
-          cache: req.cache,
-          redirect: req.redirect,
-          referrer: req.referrer,
-          integrity: req.integrity,
-        };
-
-        return new Request(req.url, init);
-      }
-
-      // Copied from types.ts
-      function SerReq2RequestInfo(input: SerializableRequest | string) {
-        let final_input: RequestInfo;
-        switch (typeof input) {
-          case "string": {
-            final_input = input;
-            break;
+        // Copied from types.ts
+        function SerReq2RequestInfo(input: SerializableRequest | string) {
+          let final_input: RequestInfo;
+          switch (typeof input) {
+            case "string": {
+              final_input = input;
+              break;
+            }
+            case "object": {
+              final_input = deserializeRequest(input as SerializableRequest);
+              break;
+            }
+            default:
+              throw new Error("Invalid input type for http.raw");
           }
-          case "object": {
-            final_input = deserializeRequest(input as SerializableRequest);
-            break;
-          }
-          default:
-            throw new Error("Invalid input type for http.raw");
+          return final_input;
         }
-        return final_input;
-      }
 
-      async function Response2SerResp(
-        response: Response,
-      ): Promise<SerializableResponse> {
-        const headers: [string, string][] = Array.from(
-          response.headers.entries(),
-        );
-        const bodyText = await response.text();
+        async function Response2SerResp(
+          response: Response,
+        ): Promise<SerializableResponse> {
+          const headers: [string, string][] = Array.from(
+            response.headers.entries(),
+          );
+          const bodyText = await response.text();
 
-        const serializableResponse = {
-          body: bodyText,
-          status: response.status,
-          statusText: response.statusText,
-          ok: response.ok,
-          headers: headers,
-          redirected: response.redirected,
-          url: response.url,
-          type: response.type,
-        };
-        return serializableResponse;
-      }
+          const serializableResponse = {
+            body: bodyText,
+            status: response.status,
+            statusText: response.statusText,
+            ok: response.ok,
+            headers: headers,
+            redirected: response.redirected,
+            url: response.url,
+            type: response.type,
+          };
+          return serializableResponse;
+        }
 
-      const _input = SerReq2RequestInfo(input);
-      const ret = await fetch(_input, requestInit || undefined);
-      const respSer = await Response2SerResp(ret);
-      console.debug("tab_http_fetch response: ", respSer);
-      return respSer;
-    },
-    // undefined is not transferable
-    args: [input, requestInit ?? null],
-  });
-  await local_uninstall_bypass(tab.id, bypassParams);
-  await tabResMgr.releaseTab(tab.id);
-  return respSer;
+        const _input = SerReq2RequestInfo(input);
+        const ret = await fetch(_input, requestInit || undefined);
+        const respSer = await Response2SerResp(ret);
+        console.debug("tab_http_fetch response: ", respSer);
+        return respSer;
+      },
+      // undefined is not transferable
+      args: [input, requestInit ?? null],
+    });
+    await local_uninstall_bypass(tab.id, bypassParams);
+    await tabResMgr.releaseTab(tab.id);
+    return respSer;
+  } finally {
+    release();
+  }
 }
 
 export async function cookies_get(

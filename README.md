@@ -29,6 +29,15 @@
 
 ### Firefox
 
+#### 自动更新版
+> [!note]
+> 注意，插件可能会被 firefox 下架，但是安装后即使下架也能用（手动重新启用即可）。
+
+- 从最新的下载页面中下载 `addon-${version}-firefox.xpi` 文件。
+- 打开 Firefox 浏览器，进入 `about:addons`。
+- 将 xpi 文件直接拖入浏览器页面中，即可安装。
+
+#### 单次安装
 - 打开 Firefox 浏览器，进入 `about:debugging#/runtime/this-firefox` 页面。
 - 点击 `临时加载附加组件` 按钮，选择之前下载的 zip 文件。
 - 安装后不能删除 zip 文件，每次打开浏览器都需要重新加载。
@@ -36,6 +45,17 @@
 ### 移动端
 
 想在手机上安装插件翻译的朋友，可以试试 Kiwi、Yandex 等浏览器，安装步骤和 Chrome 类似，注意下载请到官网下载。
+
+## 如何测试插件是否工作
+
+- 进入 `https://n.novelia.cc/wenku-edit`。
+- 使用任意 Amazon 文库地址，例如：`https://www.amazon.co.jp/dp/4048926667`。
+- 选择`导入`。
+- 检查是否导入成功：中文标题非空，简介是中文而非日文。
+
+> 如果存在问题，请手动打开一次对应的 Amazon 页面和 `dict.youdao.com` 页面获取用户凭证或者过人机验证。
+> 
+> 之后刷新 wenku-edit 页面，重试导入流程。
 
 ## API
 

@@ -65,6 +65,35 @@ jobs:
             done
           fi
 
+      - name: Get the version
+        id: get_version
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            # 从 github.ref_name (例如 v1.1.1) 中移除 'v'
+            VERSION=${{ github.ref_name }}
+            echo "version=${VERSION#v}" >> $GITHUB_OUTPUT
+          else
+            echo "version=nightly" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Generate update.json for Firefox
+        uses: jsdaniell/create-json@v1.2.3
+        with:
+          name: "update.json"
+          json: >-
+            {
+              "addons": {
+                "addon2@n.novelia.cc": {
+                  "updates": [
+                    {
+                      "version": "${{ steps.get_version.outputs.version }}",
+                      "update_link": "https://github.com/auto-novel/addon/releases/download/${{ steps.get_version.outputs.version }}/addon-${{ steps.get_version.outputs.version }}-firefox.xpi"
+                    }
+                  ]
+                }
+              }
+            }
+
       - uses: softprops/action-gh-release@v2
         with:
           prerelease: ${{ steps.metadata.outputs.prerelease }}
@@ -74,3 +103,4 @@ jobs:
           tag_name: ${{ steps.metadata.outputs.tag_name }}
           files: |
             .output/addon-*.zip
+            update.json

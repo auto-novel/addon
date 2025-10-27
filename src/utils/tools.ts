@@ -40,10 +40,8 @@ export function extractUrl(
   input: Request | SerializableRequest | string | URL,
 ): string {
   if (typeof input == "string") return input;
-  if (input instanceof URL) return input.toString();
-  if (input instanceof Request) return input.url;
-  if (input instanceof serializeRequest) return input.url;
-  throw newError(`Invalid input type: ${input}`);
+  else if (input instanceof URL) return input.toString();
+  else return input.url;
 }
 
 export function debugLog(...args: any[]) {

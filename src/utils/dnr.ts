@@ -68,7 +68,7 @@ function corsRulesBuilder(tabId: number, initialatorUrl: string): any[] {
           {
             header: "Access-Control-Allow-Headers",
             operation: "set",
-            value: "*",
+            value: "*,Content-Type,Authorization",
           },
           {
             header: "Access-Control-Expose-Headers",

@@ -96,7 +96,7 @@ export default defineConfig({
     ({
       plugins: [tailwindcss()],
       build: {
-        minify: !IS_DEBUG,
+        // minify: !IS_DEBUG,
       },
     }) as WxtViteConfig,
   autoIcons: {

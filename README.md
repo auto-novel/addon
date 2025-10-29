@@ -2,7 +2,8 @@
 
 [![GPL-3.0](https://img.shields.io/github/license/auto-novel/addon)](https://github.com/auto-novel/addon#license)
 [![cd-addon](https://github.com/auto-novel/addon/actions/workflows/cd-addon.yml/badge.svg)](https://github.com/auto-novel/addon/actions/workflows/cd-addon.yml)
-![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/auto-novel/addon/total?label=%E4%B8%8B%E8%BD%BD%E9%87%8F%20&color=violet&link=https%3A%2F%2Fgithub.com%2Fauto-novel%2Faddon%2Freleases)
+![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/auto-novel/addon/latest/total?label=下载量-最新&color=red&link=https%3A%2F%2Fgithub.com%2Fauto-novel%2Faddon%2Freleases)
+![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/auto-novel/addon/total?label=下载量-总计&color=violet&link=https%3A%2F%2Fgithub.com%2Fauto-novel%2Faddon%2Freleases)
 
 这是一个用于轻小说机翻站的用户侧 Chrome/Firefox 插件(Manifest v3)，
 旨在扩展机翻站的功能，例如第三方翻译、智能导入、前端爬虫。

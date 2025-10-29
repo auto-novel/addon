@@ -87,7 +87,7 @@ jobs:
                   "updates": [
                     {
                       "version": "${{ steps.get_version.outputs.version }}",
-                      "update_link": "https://github.com/auto-novel/addon/releases/download/${{ steps.get_version.outputs.version }}/addon-${{ steps.get_version.outputs.version }}-firefox.xpi"
+                      "update_link": "https://github.com/auto-novel/addon/releases/download/v${{ steps.get_version.outputs.version }}/addon-${{ steps.get_version.outputs.version }}-firefox.xpi"
                     }
                   ]
                 }

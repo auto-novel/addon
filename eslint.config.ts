@@ -19,7 +19,6 @@ export default defineConfig([
     rules: {
       "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/no-unused-vars": "off",
-      "require-await": "warn",
       "no-constant-condition": "off",
       "no-constant-binary-expression": "off",
     },

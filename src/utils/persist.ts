@@ -85,22 +85,47 @@ export class RefCount extends Persist<string, number> {
     super({ tag, defaultValue: 0, storageArea });
   }
 
+  private operationQueues: Map<string, Promise<any>> = new Map();
+
+  private _atomicUpdate(
+    key: string,
+    updater: (currentValue: number) => number,
+  ) {
+    const lastOperation = this.operationQueues.get(key) || Promise.resolve();
+    const newOperation = lastOperation.then(async () => {
+      let cnt = (await this.get(key)) || 0;
+      cnt = updater(cnt);
+      await this.set(key, cnt);
+      return cnt;
+    });
+
+    this.operationQueues.set(
+      key,
+      newOperation.catch(() => {}),
+    );
+    return newOperation;
+  }
+
   async inc(key: string) {
-    let cnt = (await this.get(key)) || 0;
-    cnt += 1;
-    await this.set(key, cnt);
-    return cnt;
+    return await this._atomicUpdate(key, (cnt) => cnt + 1);
   }
 
   async dec(key: string) {
-    let cnt = (await this.get(key)) || 0;
-    cnt -= 1;
-    await this.set(key, cnt);
-    return cnt;
+    return await this._atomicUpdate(key, (cnt) => cnt - 1);
   }
 
   async isZero(key: string): Promise<boolean> {
-    const cnt = (await this.get(key)) || 0;
-    return cnt === 0;
+    const lastOperation = this.operationQueues.get(key) || Promise.resolve();
+    const readOperation = lastOperation.then(async () => {
+      const cnt = (await this.get(key)) || 0;
+      return cnt === 0;
+    });
+
+    this.operationQueues.set(
+      key,
+      readOperation.catch(() => {}),
+    );
+
+    return readOperation;
   }
 }

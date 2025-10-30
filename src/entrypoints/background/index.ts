@@ -10,6 +10,7 @@ import { IS_DEBUG } from "@/utils/consts";
 import { debugLog } from "@/utils/tools";
 import { alarmLisener } from "./alarm";
 import { redirectToAutoNovel } from "./redirect";
+import { addContextMenu, handleContextMenu } from "./context-menu";
 
 export default defineBackground(() => {
   debugLog.info(`CSC debug mode: ${IS_DEBUG}`);
@@ -18,6 +19,9 @@ export default defineBackground(() => {
   rateLimiter.init();
 
   browser.alarms.onAlarm.addListener(alarmLisener);
+
+  browser.runtime.onInstalled.addListener(addContextMenu);
+  browser.contextMenus.onClicked.addListener(handleContextMenu);
 
   const messageFn = (
     message: Message,

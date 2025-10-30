@@ -35,6 +35,8 @@ export default defineConfig({
         "webRequest",
         "declarativeNetRequest",
         "declarativeNetRequestWithHostAccess",
+        "contextMenus",
+        "notifications",
       ],
       host_permissions: [
         "*://*.novelia.cc/*",

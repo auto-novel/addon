@@ -16,6 +16,16 @@ const contextMenuDefs: Record<string, ContextMenuDefItem> = {
       title: "在机翻站中打开链接",
       type: "normal",
       contexts: ["page", "link"],
+      documentUrlPatterns: [
+        "*://*.amazon.co.jp/*",
+        "*://kakuyomu.jp/*",
+        "*://*.syosetu.com/*",
+        "*://novelup.plus/*",
+        "*://syosetu.org/*",
+        "*://*.pixiv.net/*",
+        "*://*.alphapolis.co.jp/*",
+        "*://novelism.jp/*",
+      ],
     },
     handler(info: OnClickData, tab?: Tab) {
       if (info.menuItemId != "open-in-auto-novel") return;

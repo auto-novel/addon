@@ -48,6 +48,7 @@ export default defineConfig({
         "*://*.baidu.com/*",
         "*://*.youdao.com/*",
         "*://*.openai.com/*",
+
         "*://*.amazon.co.jp/*",
         "*://kakuyomu.jp/*",
         "*://*.syosetu.com/*",

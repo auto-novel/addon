@@ -20,8 +20,14 @@ export default defineBackground(() => {
 
   browser.alarms.onAlarm.addListener(alarmLisener);
 
-  browser.runtime.onInstalled.addListener(addContextMenu);
-  browser.contextMenus.onClicked.addListener(handleContextMenu);
+  // Firefox mobile does not support context menus
+  if (
+    browser?.runtime?.onInstalled?.addListener &&
+    browser.contextMenus?.onClicked?.addListener
+  ) {
+    browser.runtime.onInstalled.addListener(addContextMenu);
+    browser.contextMenus?.onClicked?.addListener(handleContextMenu);
+  }
 
   const messageFn = (
     message: Message,

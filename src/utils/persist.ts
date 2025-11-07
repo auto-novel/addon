@@ -31,7 +31,7 @@ export class Persist<K, T> {
     const deletePromise = Object.entries(allItems)
       .filter(([fullKey]) => fullKey.startsWith(this.genKey("")))
       .flatMap(([fullKey, value]) => {
-        const key = this.extractKey(fullKey as StorageItemKey);
+        const key = this.extractKey(fullKey as StorageItemKey) ?? "";
         if (!checkCallback(key, value as T)) {
           return [this.del(key)];
         }
@@ -64,7 +64,8 @@ export class Persist<K, T> {
   }
 
   private extractKey(storageItemKey: StorageItemKey): string {
-    return storageItemKey.split(":")[2];
+    // ${tag}:${key}
+    return storageItemKey.split(":")[1];
   }
 
   async set(key: K | string, value: T) {

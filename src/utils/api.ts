@@ -33,7 +33,7 @@ export async function http_fetch(
     await local_uninstall_bypass(tabId, bypassParams);
     return serializeResponse(resp);
   } finally {
-    release();
+    await release();
   }
 }
 
@@ -157,7 +157,7 @@ export async function tab_http_fetch(
     await tabResMgr.releaseTab(tab.id);
     return respSer;
   } finally {
-    release();
+    await release();
   }
 }
 

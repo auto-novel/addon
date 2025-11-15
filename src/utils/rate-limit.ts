@@ -1,6 +1,7 @@
 import { Persist } from "@/utils/persist";
 import { sleep } from "@/utils/tools";
 import { DEFAULT_RATE_LIMIT_CONFIG } from "@/utils/consts";
+import { Mutex } from "async-mutex";
 
 export type RateLimitConfig = {
   maxRequestsPerMinute: number;
@@ -80,22 +81,25 @@ class RateLimiter {
     return hostname;
   }
 
+  private mutex = new Mutex();
   public acquire(key: string): Promise<ReleaseFunction> {
-    if (!this.queues.has(key)) {
-      this.queues.set(key, []);
-      this.timestamps.set(key, []);
-      this.activeRequests.set(key, 0);
-    }
+    return this.mutex.runExclusive(() => {
+      if (!this.queues.has(key)) {
+        this.queues.set(key, []);
+        this.timestamps.set(key, []);
+        this.activeRequests.set(key, 0);
+      }
 
-    return new Promise((resolve, reject) => {
-      this.queues.get(key)!.push({ resolve, reject });
-      this.processQueue(key);
+      return new Promise((resolve, reject) => {
+        this.queues.get(key)!.push({ resolve, reject });
+        this.processQueue(key);
+      });
     });
   }
 
   private release(key: string): void {
     const currentActive = this.activeRequests.get(key) || 0;
-    this.activeRequests.set(key, Math.max(0, currentActive - 1));
+    this.activeRequests.set(key, currentActive - 1);
     debugLog("Request released", { key, active: this.activeRequests.get(key) });
     this.processQueue(key);
   }

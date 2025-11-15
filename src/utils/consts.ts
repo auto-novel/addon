@@ -18,6 +18,11 @@ export const DEFAULT_RATE_LIMIT_CONFIG: Record<string, RateLimitConfig> = {
     minIntervalMs: 0,
     maxParallelRequests: 6,
   },
+  "ncode.syosetu.com": {
+    maxRequestsPerMinute: 300,
+    minIntervalMs: 0,
+    maxParallelRequests: 32,
+  },
 };
 
 // 基础的请求速率测试实验

@@ -102,7 +102,10 @@ export class TabResMgr {
   private urlLocks = new Map<string, Promise<any>>();
   findOrCreateTab(
     url: string,
-    options?: { forceNewTab?: boolean },
+    options?: {
+      forceNewTab?: boolean;
+      maxWait?: number;
+    },
   ): Promise<Tab> {
     debugLog(`[TabResMgr] findOrCreateTab: ${url}`);
     const normalizedUrl = new URL(url);
@@ -125,6 +128,7 @@ export class TabResMgr {
       return tabRet;
     };
 
+    const maxWait = options?.maxWait ?? 0;
     const criticalSection = async () => {
       let tab;
       if (options?.forceNewTab) {
@@ -141,7 +145,15 @@ export class TabResMgr {
           tab = await createNewTabFn();
         }
       }
-      tab = await this.waitAnyTab(tab);
+      tab = await Promise.any([
+        this.waitAnyTab(tab),
+        (async () => {
+          if (maxWait > 0) {
+            await new Promise((resolve) => setTimeout(resolve, maxWait));
+          }
+          return tab;
+        })(),
+      ]);
 
       if (tab.id == null) throw newError(`Tab has no id: ${tab}`);
       await this.acquireTab(tab.id);

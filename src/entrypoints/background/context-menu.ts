@@ -24,7 +24,7 @@ const contextMenuDefs: Record<string, ContextMenuDefItem> = {
       if (!targetUrl) return;
 
       const novelTab = await tabResMgr.findOrCreateTab("https://n.novelia.cc", {
-        maxWait: 500,
+        maxWait: 1000,
       });
       const authInfo: string = await browserRemoteExecution({
         target: { tabId: novelTab.id! },

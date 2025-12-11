@@ -39,3 +39,5 @@ export const IS_TIMING = false;
     }
   }
 })();
+
+export const AutoNovelDomains = ["n.novelia.cc", "n.sakura-share.one"];

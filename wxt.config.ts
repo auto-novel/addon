@@ -57,6 +57,9 @@ export default defineConfig({
         "*://*.pixiv.net/*",
         "*://*.alphapolis.co.jp/*",
         "*://novelism.jp/*",
+
+        "*://i.pximg.net/*",
+        "*://img.syosetu.org/*",
       ],
     };
 

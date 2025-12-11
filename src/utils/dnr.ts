@@ -10,11 +10,13 @@ function spoofRulesKey(
   return hashStringToInt(`${tabId}_${requestUrl}_${origin}_${referer}`);
 }
 
-function spoofRulesBuilder(
+export function spoofRulesBuilder(
   tabId: number | null,
   requestUrl: string,
   origin: string,
   referer: string,
+  resourceTypes: string[] = ["xmlhttprequest", "csp_report", "main_frame"],
+  extraCondition: Browser.declarativeNetRequest.RuleCondition = {},
 ): any[] {
   let idx = spoofRulesKey(tabId ?? -1, requestUrl, origin, referer);
   debugLog("Building spoof rules for", {
@@ -38,14 +40,15 @@ function spoofRulesBuilder(
       condition: {
         tabIds: tabId ? [tabId] : undefined,
         urlFilter: `|${filter}/*`,
-        resourceTypes: ["xmlhttprequest", "csp_report", "main_frame"],
+        resourceTypes,
+        ...extraCondition,
       },
     },
   ];
 }
 
-function corsRulesKey(tabId: number, initialatorUrl: string) {
-  return hashStringToInt(`${tabId}_${initialatorUrl}`);
+function corsRulesKey(tabId: number, initiatorUrl: string) {
+  return hashStringToInt(`${tabId}_${initiatorUrl}`);
 }
 
 function corsRulesBuilder(tabId: number, initialatorUrl: string): any[] {

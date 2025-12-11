@@ -1,4 +1,5 @@
 .vscode
+.idea
 .output
 .wxt
 node_modules

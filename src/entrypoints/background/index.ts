@@ -8,7 +8,7 @@ import {
 import { dispatchCommand } from "@/rpc/web";
 import { IS_DEBUG } from "@/utils/consts";
 import { debugLog } from "@/utils/tools";
-import { alarmLisener } from "./alarm";
+import { alarmListener } from "./alarm";
 import { redirectToAutoNovel } from "./redirect";
 import { addContextMenu, handleContextMenu } from "./context-menu";
 import { SpoofInit } from "@/entrypoints/background/spoof";
@@ -92,7 +92,7 @@ export default defineBackground(() => {
   browser.runtime.onMessageExternal.addListener(messageFn);
 
   // Alarm
-  browser.alarms.onAlarm.addListener(alarmLisener);
+  browser.alarms.onAlarm.addListener(alarmListener);
 
   // Toolbar button click
   browser.action.onClicked.addListener(redirectToAutoNovel);

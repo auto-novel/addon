@@ -51,10 +51,10 @@ function corsRulesKey(tabId: number, initiatorUrl: string) {
   return hashStringToInt(`${tabId}_${initiatorUrl}`);
 }
 
-function corsRulesBuilder(tabId: number, initialatorUrl: string): any[] {
-  let idx = corsRulesKey(tabId, initialatorUrl);
-  debugLog("Building cors rules for", { idx, url: initialatorUrl });
-  const origin = new URL(initialatorUrl).origin;
+function corsRulesBuilder(tabId: number, initiatorUrl: string): any[] {
+  let idx = corsRulesKey(tabId, initiatorUrl);
+  debugLog("Building cors rules for", { idx, url: initiatorUrl });
+  const origin = new URL(initiatorUrl).origin;
   return [
     {
       id: idx++,
@@ -153,17 +153,14 @@ export async function uninstallSpoofRules(
   await rulesMgr.remove(rules);
 }
 
-export async function installCORSRules(tabId: number, initialatorUrl: string) {
-  const rules = corsRulesBuilder(tabId, initialatorUrl);
+export async function installCORSRules(tabId: number, initiatorUrl: string) {
+  const rules = corsRulesBuilder(tabId, initiatorUrl);
   debugLog("Add cors rules: ", rules);
   await rulesMgr.add(rules);
 }
 
-export async function uninstallCORSRules(
-  tabId: number,
-  initialatorUrl: string,
-) {
-  const rules = corsRulesBuilder(tabId, initialatorUrl);
+export async function uninstallCORSRules(tabId: number, initiatorUrl: string) {
+  const rules = corsRulesBuilder(tabId, initiatorUrl);
   debugLog("Remove cors rules: ", rules);
   await rulesMgr.remove(rules);
 }

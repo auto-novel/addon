@@ -1,5 +1,4 @@
 import { Persist } from "@/utils/persist";
-import { sleep } from "@/utils/tools";
 import { DEFAULT_RATE_LIMIT_CONFIG } from "@/utils/consts";
 import { Mutex } from "async-mutex";
 

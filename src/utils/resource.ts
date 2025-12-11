@@ -121,7 +121,7 @@ export class TabResMgr {
       });
       // 对于 Create 出来的标签页，由插件负责关闭。
       if (!tabRet.id) throw newError(`Tab has no id: ${url}`);
-      this.tabState.set(tabRet.id, {
+      await this.tabState.set(tabRet.id, {
         tabId: tabRet.id,
         refCount: 0,
       });

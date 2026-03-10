@@ -78,10 +78,11 @@ async function initSessionState() {
   debugLog.info("Session state initialized.");
 }
 
-export default defineBackground(() => {
+export default defineBackground(async () => {
   debugLog.info(`CSC debug mode: ${IS_DEBUG}`);
 
   rateLimiter.init();
+  await initSessionState();
 
   // Firefox mobile does not support context menus
   if (browser.contextMenus) {
@@ -89,8 +90,6 @@ export default defineBackground(() => {
   }
 
   browser.runtime.onInstalled.addListener(async () => {
-    await initSessionState();
-
     if (browser.contextMenus) {
       addContextMenu();
     }
@@ -98,10 +97,6 @@ export default defineBackground(() => {
     if (IS_DEBUG) {
       browser.runtime.openOptionsPage();
     }
-  });
-
-  browser.runtime.onStartup.addListener(async () => {
-    await initSessionState();
   });
 
   // Message Communication

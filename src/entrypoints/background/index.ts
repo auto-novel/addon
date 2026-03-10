@@ -86,18 +86,11 @@ export default defineBackground(async () => {
 
   // Firefox mobile does not support context menus
   if (browser.contextMenus) {
+    addContextMenu();
     browser.contextMenus.onClicked.addListener(handleContextMenu);
   }
 
-  browser.runtime.onInstalled.addListener(async () => {
-    if (browser.contextMenus) {
-      addContextMenu();
-    }
-
-    if (IS_DEBUG) {
-      browser.runtime.openOptionsPage();
-    }
-  });
+  browser.runtime.onInstalled.addListener(async () => {});
 
   // Message Communication
   browser.runtime.onMessage.addListener(messageFn);
@@ -108,4 +101,8 @@ export default defineBackground(async () => {
 
   // Toolbar button click
   browser.action.onClicked.addListener(redirectToAutoNovel);
+
+  if (IS_DEBUG) {
+    browser.runtime.openOptionsPage();
+  }
 });

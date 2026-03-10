@@ -13,6 +13,11 @@ import { redirectToAutoNovel } from "./redirect";
 import { addContextMenu, handleContextMenu } from "./context-menu";
 import { SpoofInit } from "@/entrypoints/background/spoof";
 
+let resolveInit: () => void;
+const initCompletePromise: Promise<void> = new Promise((resolve) => {
+  resolveInit = resolve;
+});
+
 const messageFn = (
   message: Message,
   sender: Browser.runtime.MessageSender,
@@ -25,15 +30,15 @@ const messageFn = (
   switch (message.type) {
     case MessageType.Ping: {
       sendResponse("pong");
-      break;
+      return false;
     }
     case MessageType.Request: {
       const msg = message as MessageRequest;
-
       debugLog(sender);
 
       if (sender.url === undefined || sender.tab?.id == undefined) {
-        throw newError(`Invalid sender: ${sender}`);
+        console.error(`Invalid sender: ${sender}`);
+        return false;
       }
 
       const env: EnvType = {
@@ -44,45 +49,56 @@ const messageFn = (
         },
       };
 
-      dispatchCommand(msg.payload.cmd, msg.payload.params, env)
-        .then((result) => {
-          debugLog("Crawler Result: ", result);
+      (async () => {
+        await initCompletePromise;
+        dispatchCommand(msg.payload.cmd, msg.payload.params, env)
+          .then((result) => {
+            debugLog("Crawler Result: ", result);
 
-          const resp = {
-            type: MessageType.Response,
-            id: msg.id,
-            payload: { success: true, result },
-          };
-          return sendResponse(resp);
-        })
-        .catch((error) => {
-          const resp: MessageResponse = {
-            type: MessageType.Response,
-            id: msg.id,
-            payload: { success: false, error: error.message },
-          };
-          return sendResponse(resp);
-        });
-      break;
+            const resp = {
+              type: MessageType.Response,
+              id: msg.id,
+              payload: { success: true, result },
+            };
+            sendResponse(resp);
+          })
+          .catch((error) => {
+            const resp: MessageResponse = {
+              type: MessageType.Response,
+              id: msg.id,
+              payload: { success: false, error: error.message },
+            };
+            sendResponse(resp);
+          });
+      })();
+
+      return true;
     }
-    default:
-      throw newError(`Unknown message type: ${message.type}`);
+    default: {
+      debugLog.error(`Unknown message type: ${message.type}`);
+      return false;
+    }
   }
-  return true;
 };
 
 async function initSessionState() {
-  debugLog.info("Initializing session state...");
-  await rulesMgr.clear();
-  await SpoofInit().then(() => debugLog.info("Spoof rules initialized."));
-  debugLog.info("Session state initialized.");
+  try {
+    debugLog.info("Initializing session state...");
+    await rulesMgr.clear();
+    await SpoofInit().then(() => debugLog.info("Spoof rules initialized."));
+  } catch (e) {
+    debugLog.error("Session init failed", e);
+  } finally {
+    debugLog.info("Session state initialized.");
+    if (resolveInit) resolveInit();
+  }
 }
 
-export default defineBackground(async () => {
+export default defineBackground(() => {
   debugLog.info(`CSC debug mode: ${IS_DEBUG}`);
 
   rateLimiter.init();
-  await initSessionState();
+  initSessionState();
 
   // Firefox mobile does not support context menus
   if (browser.contextMenus) {

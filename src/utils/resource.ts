@@ -219,22 +219,20 @@ class RulesManager {
     }
   }
 
-  clear() {
-    // Clear all rules
-    browser.declarativeNetRequest.getDynamicRules((rules) => {
-      debugLog("Cleaning up old browser rules: ", rules);
-      browser.declarativeNetRequest.updateDynamicRules({
-        removeRuleIds: rules.map((r) => r.id),
-      });
+  async clear() {
+    const dynamicRules = await browser.declarativeNetRequest.getDynamicRules();
+    debugLog("Cleaning up old browser rules: ", dynamicRules);
+    await browser.declarativeNetRequest.updateDynamicRules({
+      removeRuleIds: dynamicRules.map((r) => r.id),
     });
-    browser.declarativeNetRequest.getSessionRules((rules) => {
-      debugLog("Cleaning up old session rules: ", rules);
-      browser.declarativeNetRequest.updateSessionRules({
-        removeRuleIds: rules.map((r) => r.id),
-      });
+
+    const sessionRules = await browser.declarativeNetRequest.getSessionRules();
+    debugLog("Cleaning up old session rules: ", sessionRules);
+    await browser.declarativeNetRequest.updateSessionRules({
+      removeRuleIds: sessionRules.map((r) => r.id),
     });
-    // Clear all persisted data
-    this.ruleRefCount.clear();
+
+    await this.ruleRefCount.clear();
   }
 }
 

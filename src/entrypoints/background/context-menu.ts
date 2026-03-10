@@ -102,6 +102,7 @@ const contextMenuDefs: Record<string, ContextMenuDefItem> = {
 };
 
 export function addContextMenu() {
+  browser.contextMenus.removeAll();
   for (const [_, item] of Object.entries(contextMenuDefs)) {
     browser.contextMenus.create(item.info);
   }

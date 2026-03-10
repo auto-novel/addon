@@ -70,22 +70,39 @@ const messageFn = (
   }
   return true;
 };
+
+async function initSessionState() {
+  debugLog.info("Initializing session state...");
+  await rulesMgr.clear();
+  await SpoofInit().then(() => debugLog.info("Spoof rules initialized."));
+  debugLog.info("Session state initialized.");
+}
+
 export default defineBackground(() => {
   debugLog.info(`CSC debug mode: ${IS_DEBUG}`);
 
-  rulesMgr.clear();
   rateLimiter.init();
 
-  SpoofInit().then(() => debugLog.info("Spoof init"));
-
   // Firefox mobile does not support context menus
-  if (
-    browser?.runtime?.onInstalled?.addListener &&
-    browser.contextMenus?.onClicked?.addListener
-  ) {
-    browser.runtime.onInstalled.addListener(addContextMenu);
-    browser.contextMenus?.onClicked?.addListener(handleContextMenu);
+  if (browser.contextMenus) {
+    browser.contextMenus.onClicked.addListener(handleContextMenu);
   }
+
+  browser.runtime.onInstalled.addListener(async () => {
+    await initSessionState();
+
+    if (browser.contextMenus) {
+      addContextMenu();
+    }
+
+    if (IS_DEBUG) {
+      browser.runtime.openOptionsPage();
+    }
+  });
+
+  browser.runtime.onStartup.addListener(async () => {
+    await initSessionState();
+  });
 
   // Message Communication
   browser.runtime.onMessage.addListener(messageFn);
@@ -96,8 +113,4 @@ export default defineBackground(() => {
 
   // Toolbar button click
   browser.action.onClicked.addListener(redirectToAutoNovel);
-
-  if (IS_DEBUG) {
-    browser.runtime.openOptionsPage();
-  }
 });

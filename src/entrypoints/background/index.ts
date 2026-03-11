@@ -13,10 +13,8 @@ import { redirectToAutoNovel } from "./redirect";
 import { addContextMenu, handleContextMenu } from "./context-menu";
 import { SpoofInit } from "@/entrypoints/background/spoof";
 
-let resolveInit: () => void;
-const initCompletePromise: Promise<void> = new Promise((resolve) => {
-  resolveInit = resolve;
-});
+const { promise: initCompletePromise, resolve: resolveInit } =
+  Promise.withResolvers<void>();
 
 const messageFn = (
   message: Message,

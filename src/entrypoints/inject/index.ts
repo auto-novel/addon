@@ -1,4 +1,5 @@
 import { TabFetchOptions } from "@/rpc/types";
+import { VERSION } from "@/utils/consts";
 
 import { AddonClient } from "./client";
 

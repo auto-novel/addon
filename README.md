@@ -93,6 +93,7 @@ interface AddonApi {
   cookiesStatus(params: {
     url?: string;
     domain?: string;
+    partitionKey?: browser.cookies.CookiePartitionKey;
     keys: string[] | '*';
   }): Promise<Record<string, CookieStatus>>;
 

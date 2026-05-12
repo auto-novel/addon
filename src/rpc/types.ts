@@ -225,6 +225,7 @@ export type ClientCmd = {
     params: {
       url?: string;
       domain?: string;
+      partitionKey?: Browser.cookies.CookiePartitionKey;
       keys: string[] | "*";
     },
     env: EnvType,

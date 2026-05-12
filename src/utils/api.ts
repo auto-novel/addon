@@ -194,8 +194,8 @@ export async function cookies_getStr(url: string): Promise<string> {
 export async function cookies_status(
   params: Parameters<ClientCmd["cookies.status"]>[0],
 ): Promise<Record<string, CookieStatus | null>> {
-  const { url, domain, keys } = params;
-  const cookies = await browser.cookies.getAll({ url, domain });
+  const { url, domain, partitionKey, keys } = params;
+  const cookies = await browser.cookies.getAll({ url, domain, partitionKey });
   const ret: Awaited<ReturnType<ClientCmd["cookies.status"]>> = {};
   if (keys === "*") {
     for (const cookie of cookies) {

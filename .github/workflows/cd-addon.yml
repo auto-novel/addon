@@ -31,7 +31,11 @@ jobs:
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: |
+          pnpm install --frozen-lockfile || true
+          pnpm approve-builds esbuild @tailwindcss/oxide sharp spawn-sync
+          pnpm install --frozen-lockfile
+
 
       - name: Zip extensions
         run: |

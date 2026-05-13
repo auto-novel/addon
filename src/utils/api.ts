@@ -221,18 +221,40 @@ export async function cookies_patch(
 ): Promise<void> {
   const { url, patches } = params;
   const cookies = await browser.cookies.getAll({ url });
-  const promises = Object.entries(patches)
-    .map(
-      ([key, patch]) => [cookies.find((c) => c.name === key), patch] as const,
-    )
-    .filter((entry): entry is [Browser.cookies.Cookie, (typeof entry)[1]] =>
-      Boolean(entry[0]),
-    )
-    .map(([cookie, patch]) => {
-      const newCookie = { ...cookie, ...patch };
-      const setDetail = cookie2SetDetail(newCookie);
-      return browser.cookies.set(setDetail);
-    });
+  const promises = Object.entries(patches).map(([key, patch]) => {
+    const existing = cookies.find((c) => c.name === key);
+
+    // null patch → delete the cookie
+    if (patch === null) {
+      if (!existing) return [];
+      debugLog(`Deleting cookie: ${key} from ${url}`);
+      return browser.cookies.remove({ url, name: key });
+    }
+
+    if (existing) {
+      // Merge existing cookie with patch
+      debugLog(
+        `Merging cookie: ${key} for ${url}, patch: ${JSON.stringify(patch)}`,
+      );
+      const merged: Browser.cookies.Cookie = { ...existing, ...patch };
+      return browser.cookies.set(cookie2SetDetail(merged));
+    }
+
+    // Create new cookie
+    debugLog(
+      `Creating new cookie: ${key} for ${url}, patch: ${JSON.stringify(patch)}`,
+    );
+    const domain = patch.domain ?? new URL(url).hostname;
+    const setDetail: Browser.cookies.SetDetails = {
+      url,
+      domain,
+      value: patch.value ?? "",
+      secure: true,
+      sameSite: "no_restriction",
+      ...patch,
+    };
+    return browser.cookies.set(setDetail);
+  });
   await Promise.all(promises);
 }
 

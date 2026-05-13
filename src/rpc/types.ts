@@ -177,7 +177,7 @@ export type TabFetchOptions = {
   forceNewTab?: boolean;
 };
 
-export type CookieStatus = Partial<Omit<Browser.cookies.Cookie, "value">> & {
+export type CookieStatus = Partial<Browser.cookies.Cookie> & {
   name: string;
 };
 
@@ -234,7 +234,7 @@ export type ClientCmd = {
   "cookies.patch"(
     params: {
       url: string;
-      patches: Record<string, CookieStatus>;
+      patches: Record<string, CookieStatus | null>;
     },
     env: EnvType,
   ): Promise<void>;

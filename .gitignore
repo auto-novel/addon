@@ -6,3 +6,5 @@ node_modules
 web-ext.config.ts
 
 update.json
+
+pnpm-workspace.yaml

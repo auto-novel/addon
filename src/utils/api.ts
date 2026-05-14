@@ -42,17 +42,20 @@ export async function tab_dom_querySelectorAll(
 ): Promise<string[]> {
   const { url, selector } = params;
   const tab = await tabResMgr.findOrCreateTab(url);
-  const results = await browserRemoteExecution({
-    target: { tabId: tab.id! },
-    func: (sel: string) => {
-      const elements = document.querySelectorAll(sel);
-      const texts: string[] = Array.from(elements).map((el) => el.outerHTML);
-      return texts;
-    },
-    args: [selector],
-  });
-  await tabResMgr.releaseTab(tab.id!);
-  return results;
+  try {
+    const results = await browserRemoteExecution({
+      target: { tabId: tab.id! },
+      func: (sel: string) => {
+        const elements = document.querySelectorAll(sel);
+        const texts: string[] = Array.from(elements).map((el) => el.outerHTML);
+        return texts;
+      },
+      args: [selector],
+    });
+    return results;
+  } finally {
+    await tabResMgr.releaseTab(tab.id!);
+  }
 }
 
 export async function tab_http_fetch(
@@ -74,88 +77,99 @@ export async function tab_http_fetch(
     const tab = await tabResMgr.findOrCreateTab(tabUrl, { forceNewTab });
     if (tab.id == null) throw newError(`Tab has no id: ${tab}`);
 
-    await local_install_bypass(tab.id, bypassParams);
+    let bypassInstalled = false;
+    try {
+      await local_install_bypass(tab.id, bypassParams);
+      bypassInstalled = true;
 
-    // NOTE(kuriko): 在 tab 上面直接执行 fetch，一般不用考虑 CORS bypass 问题。
-    const respSer = await browserRemoteExecution({
-      target: { tabId: tab.id },
-      func: async (
-        input: SerializableRequest | string,
-        requestInit: RequestInit | null,
-      ) => {
-        // Copied from types.ts
-        function deserializeRequest(req: SerializableRequest): RequestInfo {
-          if (typeof req === "string") {
-            return req;
+      // NOTE(kuriko): 在 tab 上面直接执行 fetch，一般不用考虑 CORS bypass 问题。
+      const respSer = await browserRemoteExecution({
+        target: { tabId: tab.id },
+        func: async (
+          input: SerializableRequest | string,
+          requestInit: RequestInit | null,
+        ) => {
+          // Copied from types.ts
+          function deserializeRequest(req: SerializableRequest): RequestInfo {
+            if (typeof req === "string") {
+              return req;
+            }
+
+            console.log("deserializeRequest: ", req);
+            const init: RequestInit = {
+              method: req.method,
+              headers: new Headers(req.headers),
+              body: req.body,
+              mode: req.mode,
+              credentials: req.credentials,
+              cache: req.cache,
+              redirect: req.redirect,
+              referrer: req.referrer,
+              integrity: req.integrity,
+            };
+
+            return new Request(req.url, init);
           }
 
-          console.log("deserializeRequest: ", req);
-          const init: RequestInit = {
-            method: req.method,
-            headers: new Headers(req.headers),
-            body: req.body,
-            mode: req.mode,
-            credentials: req.credentials,
-            cache: req.cache,
-            redirect: req.redirect,
-            referrer: req.referrer,
-            integrity: req.integrity,
-          };
-
-          return new Request(req.url, init);
-        }
-
-        // Copied from types.ts
-        function SerReq2RequestInfo(input: SerializableRequest | string) {
-          let final_input: RequestInfo;
-          switch (typeof input) {
-            case "string": {
-              final_input = input;
-              break;
+          // Copied from types.ts
+          function SerReq2RequestInfo(input: SerializableRequest | string) {
+            let final_input: RequestInfo;
+            switch (typeof input) {
+              case "string": {
+                final_input = input;
+                break;
+              }
+              case "object": {
+                final_input = deserializeRequest(input as SerializableRequest);
+                break;
+              }
+              default:
+                throw new Error("Invalid input type for http.raw");
             }
-            case "object": {
-              final_input = deserializeRequest(input as SerializableRequest);
-              break;
-            }
-            default:
-              throw new Error("Invalid input type for http.raw");
+            return final_input;
           }
-          return final_input;
+
+          async function Response2SerResp(
+            response: Response,
+          ): Promise<SerializableResponse> {
+            const headers: [string, string][] = Array.from(
+              response.headers.entries(),
+            );
+            const bodyText = await response.text();
+
+            const serializableResponse = {
+              body: bodyText,
+              status: response.status,
+              statusText: response.statusText,
+              ok: response.ok,
+              headers: headers,
+              redirected: response.redirected,
+              url: response.url,
+              type: response.type,
+            };
+            return serializableResponse;
+          }
+
+          const _input = SerReq2RequestInfo(input);
+          const ret = await fetch(_input, requestInit || undefined);
+          const respSer = await Response2SerResp(ret);
+          console.debug("tab_http_fetch response: ", respSer);
+          return respSer;
+        },
+        // undefined is not transferable
+        args: [input, requestInit ?? null],
+      });
+      return respSer;
+    } finally {
+      if (bypassInstalled) {
+        try {
+          await local_uninstall_bypass(tab.id, bypassParams);
+        } catch (e) {
+          debugLog.warn("failed to uninstall bypass in tab_http_fetch", e);
         }
-
-        async function Response2SerResp(
-          response: Response,
-        ): Promise<SerializableResponse> {
-          const headers: [string, string][] = Array.from(
-            response.headers.entries(),
-          );
-          const bodyText = await response.text();
-
-          const serializableResponse = {
-            body: bodyText,
-            status: response.status,
-            statusText: response.statusText,
-            ok: response.ok,
-            headers: headers,
-            redirected: response.redirected,
-            url: response.url,
-            type: response.type,
-          };
-          return serializableResponse;
-        }
-
-        const _input = SerReq2RequestInfo(input);
-        const ret = await fetch(_input, requestInit || undefined);
-        const respSer = await Response2SerResp(ret);
-        console.debug("tab_http_fetch response: ", respSer);
-        return respSer;
-      },
-      // undefined is not transferable
-      args: [input, requestInit ?? null],
-    });
-    await local_uninstall_bypass(tab.id, bypassParams);
-    await tabResMgr.releaseTab(tab.id);
-    return respSer;
+      }
+      await tabResMgr.releaseTab(tab.id);
+    }
   } finally {
     await release();
   }
@@ -326,8 +340,7 @@ export async function local_install_bypass(
   const _referer = referer ?? _origin + "/";
   const promises = [];
   if (tabId) {
-    let tab = await browser.tabs.get(tabId);
-    tab = await tabResMgr.waitAnyTab(tab); // refresh tab status
+    const tab = await browser.tabs.get(tabId);
     const tabUrl = tab.url ?? tab.pendingUrl;
     if (!tabUrl) throw newError(`Tab has no url: ${tab}`);
     promises.push(installCORSRules(tabId, tabUrl));

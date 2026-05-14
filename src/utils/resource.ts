@@ -16,46 +16,26 @@ export class TabResMgr {
     key2String: (key: TabId) => key.toString(),
   });
 
-  private onLoadPromises: Map<TabId, Promise<Tab>> = new Map();
+  private tabStateOpQueues: Map<TabId, Promise<unknown>> = new Map();
 
   constructor() {}
 
-  public waitAnyTab(tab: Tab): Promise<Tab> {
-    if (!tab.id) return Promise.reject("no tab id");
-    if (tab.status === "complete") return Promise.resolve(tab);
+  private withTabStateAtomic<T>(
+    tabId: TabId,
+    operation: () => Promise<T>,
+  ): Promise<T> {
+    const current = this.tabStateOpQueues.get(tabId) || Promise.resolve();
+    const result = current.then(() => operation());
+    const queueRef = result.catch(() => {});
+    this.tabStateOpQueues.set(tabId, queueRef);
 
-    if (this.onLoadPromises.has(tab.id)) {
-      debugLog("reusing existing onLoad promise for tab", tab.id);
-      return this.onLoadPromises.get(tab.id)!;
-    }
-
-    const promise = new Promise<Tab>((resolve) => {
-      const listener = (
-        tabId: number,
-        info: { status?: string },
-        newTab: Tab,
-      ) => {
-        if (tabId === tab.id && info.status === "complete") {
-          this.onLoadPromises.delete(tab.id!);
-          clearTimeout(timeoutId);
-          browser.tabs.onUpdated.removeListener(listener);
-          resolve(newTab); // NOTE(kuriko): return the newTab states
-        }
-      };
-
-      const timeoutId = setTimeout(() => {
-        debugLog.warn("[TabResMgr] waitAnyTab timeout, resolving anyway", tab);
-        this.onLoadPromises.delete(tab.id!);
-        browser.tabs.onUpdated.removeListener(listener);
-        debugLog.warn("timeout: ", tab);
-        resolve(tab);
-      }, MAX_PAGE_LOAD_WAIT_TIME);
-
-      browser.tabs.onUpdated.addListener(listener);
+    queueRef.finally(() => {
+      if (this.tabStateOpQueues.get(tabId) === queueRef) {
+        this.tabStateOpQueues.delete(tabId);
+      }
     });
 
-    this.onLoadPromises.set(tab.id, promise);
-    return promise;
+    return result;
   }
 
   async closeTab(tab: Tab): Promise<void> {
@@ -70,36 +50,100 @@ export class TabResMgr {
   }
 
   async findAndCloseTab(tabId: number) {
-    const tabState = await this.tabState.get(tabId);
-    if (!tabState) return;
-    await Promise.all([browser.tabs.remove(tabId), this.tabState.del(tabId)]);
+    await this.withTabStateAtomic(tabId, async () => {
+      const tabState = await this.tabState.get(tabId);
+      if (!tabState) return;
+      if (tabState.refCount > 0) return;
+
+      try {
+        await browser.tabs.remove(tabId);
+      } catch (e) {
+        debugLog.warn("[TabResMgr] remove tab failed during delayed close", {
+          tabId,
+          error: e,
+        });
+      } finally {
+        await this.tabState.del(tabId);
+      }
+    });
   }
 
   private async acquireTab(tabId: number) {
-    const tabState = await this.tabState.get(tabId);
-    if (tabState != null) {
-      browser.alarms.clear(TabResMgr.genAlarmName(tabId));
+    await this.withTabStateAtomic(tabId, async () => {
+      const tabState = await this.tabState.get(tabId);
+      if (tabState == null) {
+        debugLog.warn("[TabResMgr] acquireTab on missing tab state", { tabId });
+        return;
+      }
+
+      await browser.alarms.clear(TabResMgr.genAlarmName(tabId));
       tabState.refCount += 1;
       await this.tabState.set(tabId, tabState);
-    }
+    });
   }
 
   async releaseTab(tabId: number) {
-    const tabState = await this.tabState.get(tabId);
-    if (tabState == null) return;
+    await this.withTabStateAtomic(tabId, async () => {
+      const tabState = await this.tabState.get(tabId);
+      if (tabState == null) return;
 
-    // 查询是否是由插件创建的标签页
-    tabState.refCount -= 1;
-    await this.tabState.set(tabId, tabState);
-    if (tabState.refCount > 0) return;
+      // 查询是否是由插件创建的标签页
+      tabState.refCount -= 1;
+      await this.tabState.set(tabId, tabState);
+      if (tabState.refCount > 0) return;
 
-    // 开始延时关闭
-    await browser.alarms.create(TabResMgr.genAlarmName(tabId), {
-      delayInMinutes: DELAYED_TAB_CLOSE_TIME / 60000,
+      // 开始延时关闭
+      await browser.alarms.create(TabResMgr.genAlarmName(tabId), {
+        delayInMinutes: DELAYED_TAB_CLOSE_TIME / 60000,
+      });
     });
   }
 
   private urlLocks = new Map<string, Promise<any>>();
+
+  private isTabMatchingUrl(tab: Tab, targetUrl: string): boolean {
+    if (!tab.url) return false;
+    try {
+      const current = new URL(tab.url);
+      const target = new URL(targetUrl);
+
+      // Ignore hash when matching because navigation may rewrite fragments.
+      return (
+        current.origin === target.origin &&
+        current.pathname === target.pathname &&
+        current.search === target.search
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  private async getTabIfExists(tabId: number): Promise<Tab | null> {
+    try {
+      return await browser.tabs.get(tabId);
+    } catch {
+      return null;
+    }
+  }
+
+  private async findReusableTab(url: string): Promise<Tab | null> {
+    const tabs = await browser.tabs.query({ url });
+    if (tabs.length > 0) {
+      return tabs[0];
+    }
+
+    // Firefox can miss in-flight navigations in url-filtered query.
+    // Fallback to full scan and exact URL comparison (ignoring hash).
+    const allTabs = await browser.tabs.query({});
+    for (const tab of allTabs) {
+      if (this.isTabMatchingUrl(tab, url)) {
+        return tab;
+      }
+    }
+
+    return null;
+  }
+
   findOrCreateTab(
     url: string,
     options?: {
@@ -111,68 +155,91 @@ export class TabResMgr {
     const normalizedUrl = new URL(url);
     url = normalizedUrl.toString();
 
-    // 获取当前 URL 的锁，如果不存在则创建一个已解决的 Promise 作为起点
-    const currentLock = this.urlLocks.get(url) || Promise.resolve();
-
+    const maxWait = options?.maxWait ?? MAX_PAGE_LOAD_WAIT_TIME;
     const createNewTabFn = async (): Promise<Tab> => {
-      const tabRet = await browser.tabs.create({
-        url,
-        active: false,
+      debugLog(`[TabResMgr] Creating new tab for URL: ${url}`);
+      const tabRet = await browser.tabs.create({ url, active: false });
+
+      let readyListener: (
+        tabId: number,
+        changeInfo: { status?: string },
+        updatedTab: Tab,
+      ) => void = () => {};
+
+      const readyPromise = new Promise<void>((resolve) => {
+        readyListener = (
+          tabId: number,
+          changeInfo: { status?: string },
+          _updatedTab: Tab,
+        ) => {
+          if (tabId === tabRet.id && changeInfo.status === "complete") {
+            browser.tabs.onUpdated.removeListener(readyListener);
+            resolve();
+          }
+        };
+        browser.tabs.onUpdated.addListener(readyListener);
       });
+
+      await Promise.race([readyPromise, sleep(maxWait)]);
+      browser.tabs.onUpdated.removeListener(readyListener);
+
       // 对于 Create 出来的标签页，由插件负责关闭。
       if (!tabRet.id) throw newError(`Tab has no id: ${url}`);
       await this.tabState.set(tabRet.id, {
         tabId: tabRet.id,
         refCount: 0,
       });
+
       return tabRet;
     };
 
-    const maxWait = options?.maxWait ?? 0;
     const criticalSection = async () => {
-      let tab;
+      let tab: Tab;
+      let tabAcquired = false;
+
       if (options?.forceNewTab) {
         tab = await createNewTabFn();
       } else {
-        const tabs = await browser.tabs.query({ url });
-        if (tabs.length > 0) {
-          tab = tabs[0];
-        }
-        // FIXME(kuriko): 如果用户此时手动关闭了标签页怎么办？
-        if (tabs.length > 0) {
-          tab = tabs[0];
+        const reusableTab = await this.findReusableTab(url);
+
+        if (reusableTab?.id != null) {
+          // Acquire first to clear delayed-close alarm as early as possible.
+          await this.acquireTab(reusableTab.id);
+          tabAcquired = true;
+
+          const aliveTab = await this.getTabIfExists(reusableTab.id);
+          if (aliveTab && this.isTabMatchingUrl(aliveTab, url)) {
+            tab = aliveTab;
+          } else {
+            await this.releaseTab(reusableTab.id);
+            tabAcquired = false;
+            tab = await createNewTabFn();
+          }
         } else {
           tab = await createNewTabFn();
         }
       }
-      tab = await Promise.any([
-        this.waitAnyTab(tab),
-        (async () => {
-          if (maxWait > 0) {
-            await new Promise((resolve) => setTimeout(resolve, maxWait));
-          }
-          return tab;
-        })(),
-      ]);
 
       if (tab.id == null) throw newError(`Tab has no id: ${tab}`);
-      await this.acquireTab(tab.id);
+      if (!tabAcquired) {
+        await this.acquireTab(tab.id);
+      }
 
       return tab;
     };
 
-    // --- 锁的核心实现 ---
+    // 获取当前 URL 的锁，如果不存在则创建一个已解决的 Promise 作为起点
+    const currentLock = this.urlLocks.get(url) || Promise.resolve();
+
     const result = currentLock.then(() => criticalSection());
     // 将此 URL 的锁更新为当前操作完成后的 Promise
-    this.urlLocks.set(
-      url,
-      result.catch(() => {}),
-    );
+    const lockRef = result.catch(() => {});
+    this.urlLocks.set(url, lockRef);
 
-    result.finally(() => {
+    lockRef.finally(() => {
       // 只有当 Map 中的锁仍然是当前这个操作时才移除
       // 避免移除掉后续排队的任务设置的新锁
-      if (this.urlLocks.get(url) === result.catch(() => {})) {
+      if (this.urlLocks.get(url) === lockRef) {
         this.urlLocks.delete(url);
       }
     });

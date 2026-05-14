@@ -2,15 +2,16 @@
   "name": "addon",
   "description": "轻小说机翻站用户侧爬虫插件",
   "private": true,
-  "version": "1.5.0",
+  "version": "1.5.1",
   "type": "module",
   "scripts": {
     "dev": "wxt",
     "dev:firefox": "wxt -b firefox",
     "build": "wxt build",
     "build:firefox": "wxt build -b firefox",
-    "zip": "wxt zip -b chrome --mv3",
+    "zip": "pnpm zip:firefox; pnpm zip:chrome",
     "zip:firefox": "wxt zip -b firefox --mv3",
+    "zip:chrome": "wxt zip -b chrome --mv3",
     "compile": "vue-tsc --noEmit",
     "postinstall": "wxt prepare",
     "prepare": "husky"

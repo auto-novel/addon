@@ -26,36 +26,42 @@ const contextMenuDefs: Record<string, ContextMenuDefItem> = {
       const novelTab = await tabResMgr.findOrCreateTab("https://n.novelia.cc", {
         maxWait: 1000,
       });
-      const authInfo: string = await browserRemoteExecution({
-        target: { tabId: novelTab.id! },
-        func: () => {
-          const data = localStorage.getItem("auth") ?? "";
-          console.warn("Addon request auto info:", data);
-          return data;
-        },
-        args: [],
-      });
-      debugLog.info("Got auth info:", authInfo);
-
-      if (!authInfo) {
-        await browser.notifications.create({
-          type: "basic",
-          iconUrl: browser.runtime.getURL("/icons/48.png"),
-          title: "错误",
-          message: `错误：请先登录 n.novelia.cc 获取认证信息`,
+      try {
+        const authInfo: string = await browserRemoteExecution({
+          target: { tabId: novelTab.id! },
+          func: () => {
+            const data = localStorage.getItem("auth") ?? "";
+            console.warn("Addon request auto info:", data);
+            return data;
+          },
+          args: [],
         });
-        return;
-      }
+        debugLog.info("Got auth info:", authInfo);
 
-      await browser.scripting.executeScript({
-        target: { tabId: tab!.id! },
-        func: (authInfo: string) => {
-          localStorage.setItem("auth", authInfo);
-          alert("已成功复制认证信息到当前域，按确定后刷新页面。");
-          window.location.reload();
-        },
-        args: [authInfo],
-      });
+        if (!authInfo) {
+          await browser.notifications.create({
+            type: "basic",
+            iconUrl: browser.runtime.getURL("/icons/48.png"),
+            title: "错误",
+            message: `错误：请先登录 n.novelia.cc 获取认证信息`,
+          });
+          return;
+        }
+
+        await browser.scripting.executeScript({
+          target: { tabId: tab!.id! },
+          func: (authInfo: string) => {
+            localStorage.setItem("auth", authInfo);
+            alert("已成功复制认证信息到当前域，按确定后刷新页面。");
+            window.location.reload();
+          },
+          args: [authInfo],
+        });
+      } finally {
+        if (novelTab.id != null) {
+          await tabResMgr.releaseTab(novelTab.id);
+        }
+      }
     },
   },
   "open-in-auto-novel": {

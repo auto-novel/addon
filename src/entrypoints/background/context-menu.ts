@@ -139,6 +139,7 @@ const contextMenuDefs: Record<string, ContextMenuDefItem> = {
         "*://*.syosetu.com/*",
         "*://novelup.plus/*",
         "*://syosetu.org/*",
+        "*://*.syosetu.org/*",
         "*://*.pixiv.net/*",
         "*://*.alphapolis.co.jp/*",
         "*://novelism.jp/*",

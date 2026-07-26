@@ -10,12 +10,11 @@ export async function waitForTabUrl(
   timeout: number = MAX_PAGE_LOAD_WAIT_TIME,
 ): Promise<string | null> {
   let tabUrl = tab.url ?? tab.pendingUrl;
-  if (!tabUrl) {
-    // Wait a bit and try again,
-    // as the URL might not be immediately available for new tabs.
+  if (!tabUrl && tab.id != null) {
     await sleep(timeout);
+    const updated = await browser.tabs.get(tab.id);
+    tabUrl = updated.url ?? updated.pendingUrl;
   }
-  tabUrl = tab.url ?? tab.pendingUrl;
   return tabUrl ?? null;
 }
 
@@ -31,13 +30,16 @@ export async function browserRemoteExecution<T, A extends any[]>({
 }: BrowserRemoteExecutionOptions<T, A>): Promise<T> {
   const results = await browser.scripting.executeScript({ target, func, args });
 
-  if (results && results[0] && results[0].result) {
-    return results[0].result as T;
-  } else {
-    const msg = `Failed to execute script in tab: ${results}`;
-    console.error(msg, results);
-    throw new Error(msg);
+  const injectionResult = results?.[0] as
+    | (Browser.scripting.InjectionResult<T> & { error?: unknown })
+    | undefined;
+  if (injectionResult?.error) {
+    throw newError(`Failed to execute script in tab: ${injectionResult.error}`);
   }
+  if (injectionResult?.result !== undefined) {
+    return injectionResult.result as T;
+  }
+  throw newError(`Failed to execute script in tab: ${results}`);
 }
 
 export function hashStringToInt(str: string): number {

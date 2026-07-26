@@ -19,10 +19,19 @@ function sendMessageChrome<T>(msg: MessageRequest): Promise<T> {
           "Error sending message to addon:",
           browser.runtime.lastError,
         );
-        reject(browser.runtime.lastError);
+        return reject(browser.runtime.lastError);
+      }
+      if (!response) {
+        return reject(new Error("No response from addon"));
       }
       console.debug(response);
-      resolve(response.payload.result);
+      if (response.payload.success) {
+        return resolve(response.payload.result);
+      } else {
+        return reject(
+          response.payload.error ?? new Error("Unknown addon error"),
+        );
+      }
     });
   });
 }

@@ -181,11 +181,7 @@ async function injectedTabHttpFetch(
   }
 
   const requestInput = injectedSerReqToRequestInfo(input);
-  const fetchInit: RequestInit = {
-    credentials: "include",
-    ...(requestInit || {}),
-  };
-  const response = await fetch(requestInput, fetchInit);
+  const response = await fetch(requestInput, requestInit || {});
   const responseSer = await injectedResponseToSerializableResponse(response);
   return responseSer;
 }

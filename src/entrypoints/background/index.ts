@@ -3,6 +3,7 @@ import {
   MessageRequest,
   MessageResponse,
   MessageType,
+  serializeError,
   type Message,
 } from "@/rpc/types";
 import { dispatchCommand } from "@/rpc/web";
@@ -73,7 +74,7 @@ const messageFn = (
             const resp: MessageResponse = {
               type: MessageType.Response,
               id: msg.id,
-              payload: { success: false, error: error.message },
+              payload: { success: false, error: serializeError(error) },
             };
             sendResponse(resp);
           });

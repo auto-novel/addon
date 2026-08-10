@@ -3,7 +3,11 @@ import type {
   MessageResponse,
   TabFetchOptions,
 } from "@/rpc/types";
-import { deserializeResponse, MessageType } from "@/rpc/types";
+import {
+  deserializeError,
+  deserializeResponse,
+  MessageType,
+} from "@/rpc/types";
 import type { ClientCmd, SerializableResponse } from "@/rpc/types";
 import { serializeRequest } from "@/rpc/types";
 import { IS_TIMING } from "@/shared/consts";
@@ -28,9 +32,7 @@ function sendMessageChrome<T>(msg: MessageRequest): Promise<T> {
       if (response.payload.success) {
         return resolve(response.payload.result);
       } else {
-        return reject(
-          response.payload.error ?? new Error("Unknown addon error"),
-        );
+        return reject(deserializeError(response.payload.error));
       }
     });
   });
@@ -56,7 +58,7 @@ function sendMessageFirefox<T>(msg: MessageRequest): Promise<T> {
         return resolve(resp.payload.result);
       } else {
         console.error("Error from addon:", resp.payload);
-        return reject(resp.payload.error);
+        return reject(deserializeError(resp.payload.error));
       }
     };
     window.postMessage(msg, "*");

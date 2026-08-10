@@ -10,6 +10,9 @@ export const AddonCapabilities = {
   cookiesPatch: {
     writeDelete: "1.5.2",
   },
+  tabFetch: {
+    redirect: "1.9.1",
+  },
   tab: {
     domQuery: {
       base: "1.8.0",

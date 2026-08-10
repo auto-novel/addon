@@ -11,16 +11,20 @@
 ## 使用说明
 
 ### 翻译和导入功能：
+
 支持机翻站的文库自动导入，有道翻译功能。
 
 ### 阅读器外部资源
+
 处理 Pixiv 之类的文章中引用的图片等外部资源，绕过服务器 Referer 限制。
 
 ### 跳转功能
+
 在机翻站支持的小说网站的**小说页面**上右键选择选项，可以直接跳转到对应的机翻站页面。
 也可以直接点击浏览器右上角的机翻站插件的图标。
 
 ### 认证信息转移
+
 AutoNovel 开发阶段本地启动的 `pnpm dev` 站点，右键可以将主站的认证信息复制到 `localhost:5173` 中，实现登录。
 
 ## 安装
@@ -55,6 +59,7 @@ AutoNovel 开发阶段本地启动的 `pnpm dev` 站点，右键可以将主站�
 ### Firefox
 
 #### 自动更新版
+
 > [!note]
 > 注意，插件可能会被 firefox 下架，但是安装后即使下架也能用（手动重新启用即可）。
 
@@ -63,6 +68,7 @@ AutoNovel 开发阶段本地启动的 `pnpm dev` 站点，右键可以将主站�
 - 将 xpi 文件直接拖入浏览器页面中，即可安装。
 
 #### 单次安装
+
 - 打开 Firefox 浏览器，进入 `about:debugging#/runtime/this-firefox` 页面。
 - 点击 `临时加载附加组件` 按钮，选择之前下载的 zip 文件。
 - 安装后不能删除 zip 文件，每次打开浏览器都需要重新加载。
@@ -79,16 +85,13 @@ AutoNovel 开发阶段本地启动的 `pnpm dev` 站点，右键可以将主站�
 
 Android 手机建议使用 [Firefox Nightly](https://play.google.com/store/apps/details?id=org.mozilla.fenix) 浏览器。
 
-- 从 [发布页](https://github.com/auto-novel/addon/releases/latest) 下载的`xpi文件` 
+- 从 [发布页](https://github.com/auto-novel/addon/releases/latest) 下载的`xpi文件`
 
 - 打开`设置`点击`关于 Firefox Nightly`后`快速点击 Firefox 图标 5 次`，
 
 - 返回上一页点击 `从文件安装扩展`，选择下载的 `xpi 文件`
 
->  之后新版本插件发布后，浏览器会自动更新插件。
-
-
-
+> 之后新版本插件发布后，浏览器会自动更新插件。
 
 ## 如何测试插件是否工作
 
@@ -129,6 +132,15 @@ type TabFetchOptions = {
   closeTimeout?: number;
 };
 
+type TabFetchError = Error & {
+  /** 按发生顺序记录的重定向目标。 */
+  redirectUrls?: string[];
+  /** 最后一个重定向目标，等同于 redirectUrls.at(-1)。 */
+  redirectUrl?: string;
+  requestUrl?: string;
+  tabId?: number;
+};
+
 type TabDomQueryOptions = {
   tabId?: number;
   forceNewTab?: boolean;
@@ -157,7 +169,7 @@ interface AddonApi {
     url?: string;
     domain?: string;
     partitionKey?: browser.cookies.CookiePartitionKey;
-    keys: string[] | '*';
+    keys: string[] | "*";
   }): Promise<Record<string, CookieStatus | null>>;
 
   cookiesPatch(params: {
@@ -193,6 +205,36 @@ declare global {
   }
 }
 ```
+
+### tabFetch 重定向
+
+`tabFetch` 的调用接口仍为 `Promise<Response>`。成功返回时：
+
+- `response.url` 是 fetch 最终响应地址；
+- `response.redirected` 表示 fetch 是否跟随过重定向；
+- `X-AutoNovelAddon-Redirect-Url` 响应头是最后一个观测到的重定向目标；
+- `X-AutoNovelAddon-Redirect-Urls` 响应头是 JSON 编码的完整重定向目标数组。
+
+如果重定向后的请求因为 CORS、网络错误或验证墙而失败，Promise 会 reject，错误对象符合上面的 `TabFetchError`，调用方仍可根据 `redirectUrl` 切换 `tabUrl` 后重试：
+
+```typescript
+try {
+  const response = await Addon.tabFetch(options, requestUrl);
+  const redirectUrl = response.headers.get("X-AutoNovelAddon-Redirect-Url");
+  // 根据业务响应和 redirectUrl 决定是否切换 tabUrl 后重试。
+} catch (cause) {
+  const error = cause as TabFetchError;
+  if (error.redirectUrl) {
+    const nextOptions = {
+      ...options,
+      tabUrl: new URL(error.redirectUrl).origin,
+    };
+    // 按调用方的重试策略再次调用 Addon.tabFetch。
+  }
+}
+```
+
+扩展必须同时具有初始请求域名和重定向目标域名的 `host_permissions`，否则浏览器可能不会向扩展暴露完整跳转链，也无法在目标域标签页执行脚本。
 
 ## 开发说明
 

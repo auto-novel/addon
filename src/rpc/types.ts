@@ -73,7 +73,7 @@ export interface MessageDebugLog {
 export type ResponsePayload = {
   success: boolean;
   result?: any;
-  error?: string;
+  error?: string | SerializableError;
 };
 
 export type Message =
@@ -100,7 +100,33 @@ export type SerializableResponse = {
   redirected: boolean;
   url: string;
   type: ResponseType;
+  redirectUrls?: string[];
+  tabId?: number;
 };
+
+export type SerializableError = {
+  message: string;
+  name?: string;
+  redirectUrls?: string[];
+  redirectUrl?: string;
+  requestUrl?: string;
+  tabId?: number;
+};
+
+export type TabFetchError = Error & {
+  redirectUrls?: string[];
+  redirectUrl?: string;
+  requestUrl?: string;
+  tabId?: number;
+};
+
+export const TabFetchResponseHeaders = {
+  TabId: "X-AutoNovelAddon-TabId",
+  ResponseUrl: "X-AutoNovelAddon-Response-Url",
+  Redirected: "X-AutoNovelAddon-Redirected",
+  RedirectUrl: "X-AutoNovelAddon-Redirect-Url",
+  RedirectUrls: "X-AutoNovelAddon-Redirect-Urls",
+} as const;
 
 export async function serializeResponse(
   response: Response,
@@ -121,14 +147,100 @@ export async function serializeResponse(
   return serializableResponse;
 }
 
+const NULL_BODY_STATUSES = new Set([0, 101, 204, 205, 304]);
+
+/**
+ * Restore fetch's read-only response metadata after crossing the RPC boundary.
+ *
+ * A plain `new Response()` loses `url`, `redirected`, and `type`. Defining own
+ * accessors after construction preserves those values without subclassing:
+ * native Response constructors may access virtual getters before a subclass
+ * has finished initializing.
+ */
+function restoreResponseMetadata(
+  response: Response,
+  serialized: SerializableResponse,
+): Response {
+  const nativeClone = response.clone.bind(response);
+  Object.defineProperties(response, {
+    status: { configurable: true, get: () => serialized.status },
+    statusText: { configurable: true, get: () => serialized.statusText },
+    ok: { configurable: true, get: () => serialized.ok },
+    redirected: { configurable: true, get: () => serialized.redirected },
+    url: { configurable: true, get: () => serialized.url },
+    type: { configurable: true, get: () => serialized.type },
+    redirectUrls: {
+      configurable: true,
+      value: Object.freeze([...(serialized.redirectUrls ?? [])]),
+    },
+    tabId: { configurable: true, value: serialized.tabId },
+    clone: {
+      configurable: true,
+      value: () => restoreResponseMetadata(nativeClone(), serialized),
+    },
+  });
+  return response;
+}
+
 export function deserializeResponse(serResp: SerializableResponse): Response {
-  const init: ResponseInit = {
-    status: serResp.status,
-    statusText: serResp.statusText,
-    headers: serResp.headers,
+  const canConstructStatus = serResp.status >= 200 && serResp.status <= 599;
+  const response = new Response(
+    NULL_BODY_STATUSES.has(serResp.status) ? null : serResp.body,
+    {
+      // The restored public getters retain status 0. ResponseInit itself only
+      // accepts status codes in the 200-599 range.
+      status: canConstructStatus ? serResp.status : 200,
+      statusText: canConstructStatus ? serResp.statusText : "",
+      headers: serResp.headers,
+    },
+  );
+  return restoreResponseMetadata(response, serResp);
+}
+
+export function serializeError(error: unknown): SerializableError {
+  const value =
+    typeof error === "object" && error !== null
+      ? (error as Partial<TabFetchError>)
+      : null;
+  const redirectUrls = Array.isArray(value?.redirectUrls)
+    ? value.redirectUrls.filter(
+        (redirectUrl): redirectUrl is string => typeof redirectUrl === "string",
+      )
+    : undefined;
+
+  return {
+    message:
+      error instanceof Error
+        ? error.message
+        : typeof error === "string"
+          ? error
+          : String(error),
+    name: error instanceof Error ? error.name : undefined,
+    redirectUrls,
+    redirectUrl:
+      typeof value?.redirectUrl === "string" ? value.redirectUrl : undefined,
+    requestUrl:
+      typeof value?.requestUrl === "string" ? value.requestUrl : undefined,
+    tabId: typeof value?.tabId === "number" ? value.tabId : undefined,
   };
-  const realResp = new Response(serResp.body, init);
-  return realResp;
+}
+
+export function deserializeError(
+  error: string | SerializableError | undefined,
+): TabFetchError {
+  if (typeof error === "string" || error === undefined) {
+    return new Error(error ?? "Unknown addon error");
+  }
+
+  const deserialized = new Error(error.message) as TabFetchError;
+  deserialized.name = error.name ?? "Error";
+  deserialized.redirectUrls = error.redirectUrls
+    ? [...error.redirectUrls]
+    : undefined;
+  deserialized.redirectUrl = error.redirectUrl;
+  deserialized.requestUrl = error.requestUrl;
+  deserialized.tabId = error.tabId;
+  return deserialized;
 }
 
 export interface SerializableRequest {

@@ -130,6 +130,13 @@ export class TabResMgr {
     }
   }
 
+  private isTabReusable(tab: Tab): boolean {
+    // Chromium/Edge and Firefox keep discarded tabs in the tab strip even
+    // though their document has been unloaded. Such a tab still has its URL,
+    // but browser.scripting.executeScript cannot run in it.
+    return !tab.discarded && tab.status !== "unloaded" && !tab.frozen;
+  }
+
   private async getTabIfExists(tabId: number): Promise<Tab | null> {
     try {
       return await browser.tabs.get(tabId);
@@ -139,16 +146,17 @@ export class TabResMgr {
   }
 
   private async findReusableTab(url: string): Promise<Tab | null> {
-    const tabs = await browser.tabs.query({ url });
-    if (tabs.length > 0) {
-      return tabs[0];
+    const tabs = await browser.tabs.query({ url, discarded: false });
+    const reusableTab = tabs.find((tab) => this.isTabReusable(tab));
+    if (reusableTab) {
+      return reusableTab;
     }
 
     // Firefox can miss in-flight navigations in url-filtered query.
     // Fallback to full scan and exact URL comparison (ignoring hash).
     const allTabs = await browser.tabs.query({});
     for (const tab of allTabs) {
-      if (this.isTabMatchingUrl(tab, url)) {
+      if (this.isTabReusable(tab) && this.isTabMatchingUrl(tab, url)) {
         return tab;
       }
     }
@@ -172,6 +180,9 @@ export class TabResMgr {
     const createNewTabFn = async (): Promise<Tab> => {
       debugLog(`[TabResMgr] Creating new tab for URL: ${url}`);
       const tabRet = await browser.tabs.create({ url, active: false });
+
+      if (!tabRet.id) throw newError(`Tab has no id: ${url}`);
+      await browser.tabs.update(tabRet.id, { autoDiscardable: false });
 
       let readyListener: (
         tabId: number,
@@ -197,7 +208,6 @@ export class TabResMgr {
       browser.tabs.onUpdated.removeListener(readyListener);
 
       // 对于 Create 出来的标签页，由插件负责关闭。
-      if (!tabRet.id) throw newError(`Tab has no id: ${url}`);
       await this.tabState.set(tabRet.id, {
         tabId: tabRet.id,
         refCount: 0,
@@ -221,7 +231,11 @@ export class TabResMgr {
           tabAcquired = true;
 
           const aliveTab = await this.getTabIfExists(reusableTab.id);
-          if (aliveTab && this.isTabMatchingUrl(aliveTab, url)) {
+          if (
+            aliveTab &&
+            this.isTabReusable(aliveTab) &&
+            this.isTabMatchingUrl(aliveTab, url)
+          ) {
             tab = aliveTab;
           } else {
             await this.releaseTab(

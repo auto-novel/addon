@@ -47,9 +47,13 @@ export default defineContentScript({
     "https://*.novelia.cc/*",
     "https://*.fishhawk.top/*",
   ],
+  runAt: "document_start",
   async main() {
-    console.info("Content script for auto-novel loaded.");
+    // add addon mark to notify web side
+    document.documentElement.dataset.autoNovelAddon = "loading";
+
     forwardDebugLogToAddon();
+    console.info("Content script for auto-novel loaded.");
     if (import.meta.env.FIREFOX) {
       forwardMessageToAddon();
     }

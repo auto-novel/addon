@@ -90,6 +90,8 @@ declare global {
 export default defineUnlistedScript(() => {
   console.info("Addon script loaded");
   window.Addon = Addon;
+  document.documentElement.dataset.autoNovelAddon = "ready";
+  window.dispatchEvent(new Event("auto-novel-addon-ready"));
   console.info(
     "Addon injected to window.Addon, extension version:",
     Addon.version,

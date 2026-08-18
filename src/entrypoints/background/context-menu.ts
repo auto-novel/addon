@@ -2,6 +2,7 @@ import { clearLogs, debugLog } from "@/utils/log/backend";
 import { exportLogs } from "@/utils/log/export";
 
 import { getRedirectionResult } from "./redirect";
+import { VERSION } from "@/shared/consts";
 import { LOG_MAX_ENTRIES } from "@/utils/log/shared";
 
 type OnClickData = Browser.contextMenus.OnClickData;
@@ -10,7 +11,7 @@ type Tab = Browser.tabs.Tab;
 
 type ContextMenuDefItem = {
   info: CreateProperties;
-  handler: (info: OnClickData, tab?: Tab) => void;
+  handler?: (info: OnClickData, tab?: Tab) => void;
 };
 
 async function notify(title: string, message: string) {
@@ -49,6 +50,30 @@ async function handleClearLogs() {
 }
 
 const contextMenuDefs: Record<string, ContextMenuDefItem> = {
+  "show-version": {
+    info: {
+      id: "show-version",
+      title: `当前版本：${VERSION}`,
+      type: "normal",
+      enabled: false,
+      contexts: ["action"],
+    } satisfies CreateProperties,
+  },
+  "check-release": {
+    info: {
+      id: "check-release",
+      title: "查看最新版本",
+      type: "normal",
+      contexts: ["action"],
+    } satisfies CreateProperties,
+    handler(info: OnClickData) {
+      if (info.menuItemId != "check-release") return;
+      void browser.tabs.create({
+        url: "https://github.com/auto-novel/addon/releases",
+        active: true,
+      });
+    },
+  },
   "export-log-all": {
     info: {
       id: "export-log-all",
